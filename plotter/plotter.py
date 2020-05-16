@@ -13,9 +13,6 @@ import paho.mqtt.client as mqtt
 import plotly
 import plotly.graph_objs as go
 
-MQTTHOST = ""
-DASHHOST = ""
-
 
 def format_figure_1(data, fig, title="-"):
     """Format figure type 1.
@@ -244,8 +241,8 @@ fig1.update_yaxes(
 fig1.update_layout(margin=dict(l=20, r=0, t=30, b=0), plot_bgcolor="rgba(0,0,0,0)")
 
 fig2 = plotly.subplots.make_subplots(subplot_titles=["-"])
-fig2.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="fwd"))
-fig2.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="rev"))
+fig2.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="scan0"))
+fig2.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="scan1"))
 fig2.update_xaxes(
     title="voltage (V)",
     ticks="inside",
@@ -507,7 +504,12 @@ def on_message_2(mqttc, obj, msg):
     if m["clear"] is True:
         data = np.empty((0, 4))
     else:
-        data = np.array(m["data"])
+        if len(data) == 0:
+            data0 = np.array(m["data"])
+            data1 = np.zeros(data0.shape)
+            data = np.append(data0, data1, axis=1)
+        else:
+            data[:, 2:] = np.array(m["data"])
     graph2_latest.append({"msg": m, "data": data})
 
 
@@ -557,19 +559,30 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", metavar="t", type=str, default="data", help="Topic.")
+    parser.add_argument(
+        "-mqtt-host",
+        type=str,
+        default="",
+        help="IP address or hostname for MQTT broker.",
+    )
+    parser.add_argument(
+        "-dash-host",
+        type=str,
+        default="",
+        help="IP address or hostname for dash server.",
+    )
 
     args = parser.parse_args()
 
-    topic = args.t
-    print(f"Subscribing to mqtt://{MQTTHOST}/{topic}")
+    MQTTHOST = args.mqtt_host
+    DASHHOST = args.dash_host
 
     subtopics = []
-    subtopics.append(f"{topic}/exp1")
-    subtopics.append(f"{topic}/exp2")
-    subtopics.append(f"{topic}/exp3")
-    subtopics.append(f"{topic}/exp4")
-    subtopics.append(f"{topic}/exp5")
+    subtopics.append(f"plot/voltage")
+    subtopics.append(f"plot/iv")
+    subtopics.append(f"plot/mppt")
+    subtopics.append(f"plot/current")
+    subtopics.append(f"plot/eqe")
 
     on_messages = [on_message_1, on_message_2, on_message_3, on_message_4, on_message_5]
 
@@ -584,7 +597,7 @@ if __name__ == "__main__":
         mqttc.loop_start()
 
     # start dash server
-    app.run_server(host=DASHHOST, debug=True)
+    app.run_server(host=DASHHOST, debug=False)
 
     # stop mqtt client threads
     for mqttc in mqtt_clients:
