@@ -578,11 +578,11 @@ if __name__ == "__main__":
     DASHHOST = args.dash_host
 
     subtopics = []
-    subtopics.append(f"plot/voltage")
-    subtopics.append(f"plot/iv")
-    subtopics.append(f"plot/mppt")
-    subtopics.append(f"plot/current")
-    subtopics.append(f"plot/eqe")
+    subtopics.append(f"data/voltage")
+    subtopics.append(f"data/iv")
+    subtopics.append(f"data/mppt")
+    subtopics.append(f"data/current")
+    subtopics.append(f"data/eqe")
 
     on_messages = [on_message_1, on_message_2, on_message_3, on_message_4, on_message_5]
 
