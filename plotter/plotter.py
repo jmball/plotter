@@ -483,21 +483,30 @@ def pause_button(paused):
 def on_message_1(mqttc, obj, msg):
     """Act on an MQTT msg.
 
-    Append or clear data stored in a queue.
+    Append or clear V-t data stored in a queue.
     """
     m = json.loads(msg.payload)
     data = graph1_latest[0]["data"]
     if m["clear"] is True:
-        data = np.empty((0, 2))
+        data = np.empty((0, 3))
     else:
-        data = np.append(data, np.array([[m["x1"], m["y1"]]]), axis=0)
+        t = m["data"][2]
+        v = m["data"][0]
+
+        data = np.append(data, np.array([[0, v, t]]), axis=0)
+
+        # time returned by smu is time in s since instrument turned on so measurement
+        # start offset needs to be substracted.
+        t_scaled = data[:, -1] - data[0, -1]
+        data[:, 0] = t_scaled
+
     graph1_latest.append({"msg": m, "data": data})
 
 
 def on_message_2(mqttc, obj, msg):
     """Act on an MQTT msg.
 
-    Append or clear data stored in a queue.
+    Append or clear I-V data stored in a queue.
     """
     m = json.loads(msg.payload)
     data = graph2_latest[0]["data"]
@@ -505,53 +514,78 @@ def on_message_2(mqttc, obj, msg):
         data = np.empty((0, 4))
     else:
         if len(data) == 0:
-            data0 = np.array(m["data"])
+            data0 = np.array(m["data"][:, [0, 1]])
             data1 = np.zeros(data0.shape)
             data = np.append(data0, data1, axis=1)
         else:
-            data[:, 2:] = np.array(m["data"])
+            data[:, 2:] = np.array(m["data"][:, [0, 1]])
     graph2_latest.append({"msg": m, "data": data})
 
 
 def on_message_3(mqttc, obj, msg):
     """Act on an MQTT msg.
 
-    Append or clear data stored in a queue.
+    Append or clear MPPT data stored in a queue.
     """
     m = json.loads(msg.payload)
     data = graph3_latest[0]["data"]
     if m["clear"] is True:
         data = np.empty((0, 4))
     else:
-        data = np.append(data, np.array([[m["x1"], m["y1"], m["y2"], m["y3"]]]), axis=0)
+        t = m["data"][2]
+        v = m["data"][0]
+        i = m["data"][1]
+        p = v * i
+
+        data = np.append(data, np.array([[0, v, i, p, t]]), axis=0,)
+
+        # time returned by smu is time in s since instrument turned on so measurement
+        # start offset needs to be substracted.
+        t_scaled = data[:, -1] - data[0, -1]
+        data[:, 0] = t_scaled
+
     graph3_latest.append({"msg": m, "data": data})
 
 
 def on_message_4(mqttc, obj, msg):
     """Act on an MQTT msg.
 
-    Append or clear data stored in a queue.
+    Append or clear I-t data stored in a queue.
     """
     m = json.loads(msg.payload)
     data = graph4_latest[0]["data"]
     if m["clear"] is True:
         data = np.empty((0, 2))
     else:
-        data = np.append(data, np.array([[m["x1"], m["y1"]]]), axis=0)
+        t = m["data"][2]
+        i = m["data"][1]
+
+        data = np.append(data, np.array([[0, i, t]]), axis=0)
+
+        # time returned by smu is time in s since instrument turned on so measurement
+        # start offset needs to be substracted.
+        t_scaled = data[:, -1] - data[0, -1]
+        data[:, 0] = t_scaled
+
     graph4_latest.append({"msg": m, "data": data})
 
 
 def on_message_5(mqttc, obj, msg):
     """Act on an MQTT msg.
 
-    Append or clear data stored in a queue.
+    Append or clear EQE data stored in a queue.
     """
     m = json.loads(msg.payload)
     data = graph5_latest[0]["data"]
     if m["clear"] is True:
         data = np.empty((0, 3))
     else:
-        data = np.append(data, np.array([[m["x1"], m["y1"], m["y2"]]]), axis=0)
+        if len(m["data"]) == 13:
+            data = np.append(data, np.array([[m["data"][1], m["data"][-1], 0]]), axis=0)
+        else:
+            data = np.append(
+                data, np.array([[m["data"][1], m["data"][-2], m["data"][-1]]]), axis=0
+            )
     graph5_latest.append({"msg": m, "data": data})
 
 
