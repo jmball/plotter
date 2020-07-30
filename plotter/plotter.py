@@ -2,7 +2,9 @@
 """Plot data obtained from MQTT broker using Dash."""
 
 import collections
-import json
+import pickle
+import threading
+import uuid
 
 import dash
 import dash_core_components as dcc
@@ -73,8 +75,10 @@ def format_figure_2(data, fig, title="-"):
         # add data to fig
         fig["data"][0]["x"] = data[:, 0]
         fig["data"][0]["y"] = data[:, 1]
-        fig["data"][1]["x"] = data[:, 2]
-        fig["data"][1]["y"] = data[:, 3]
+
+        if np.all(data[:, 2] != np.zeros(len(data[:, 2]))):
+            fig["data"][1]["x"] = data[:, 2]
+            fig["data"][1]["y"] = data[:, 3]
 
         # update ranges
         xrange = [
@@ -184,16 +188,16 @@ def format_figure_5(data, fig, title="-"):
         # add data to fig
         fig["data"][0]["x"] = data[:, 0]
         fig["data"][0]["y"] = data[:, 1]
-        fig["data"][1]["x"] = data[:, 0]
-        fig["data"][1]["y"] = data[:, 2]
+        # fig["data"][1]["x"] = data[:, 0]
+        # fig["data"][1]["y"] = data[:, 2]
 
         # update ranges
         xrange = [min(data[:, 0]), max(data[:, 0])]
         yrange = [min(data[:, 1]), max(data[:, 1])]
-        yrange2 = [min(data[:, 2]), max(data[:, 2])]
+        # yrange2 = [min(data[:, 2]), max(data[:, 2])]
         fig["layout"]["xaxis"]["range"] = xrange
         fig["layout"]["yaxis"]["range"] = yrange
-        fig["layout"]["yaxis2"]["range"] = yrange2
+        # fig["layout"]["yaxis2"]["range"] = yrange2
 
         # update title
         fig["layout"]["annotations"][0]["text"] = title
@@ -209,11 +213,11 @@ graph4_latest = collections.deque(maxlen=1)
 graph5_latest = collections.deque(maxlen=1)
 
 # initialise plot info/data queues
-graph1_latest.append({"msg": {"clear": True, "id": "-"}, "data": np.empty((0, 2))})
-graph2_latest.append({"msg": {"clear": True, "id": "-"}, "data": np.empty((0, 4))})
-graph3_latest.append({"msg": {"clear": True, "id": "-"}, "data": np.empty((0, 4))})
-graph4_latest.append({"msg": {"clear": True, "id": "-"}, "data": np.empty((0, 2))})
-graph5_latest.append({"msg": {"clear": True, "id": "-"}, "data": np.empty((0, 3))})
+graph1_latest.append({"msg": {"clear": True, "idn": "-"}, "data": np.empty((0, 3))})
+graph2_latest.append({"msg": {"clear": True, "idn": "-"}, "data": np.empty((0, 4))})
+graph3_latest.append({"msg": {"clear": True, "idn": "-"}, "data": np.empty((0, 5))})
+graph4_latest.append({"msg": {"clear": True, "idn": "-"}, "data": np.empty((0, 3))})
+graph5_latest.append({"msg": {"clear": True, "idn": "-"}, "data": np.empty((0, 2))})
 
 # initial figure properties
 fig1 = plotly.subplots.make_subplots(subplot_titles=["-"])
@@ -254,7 +258,7 @@ fig2.update_xaxes(
     autorange=False,
 )
 fig2.update_yaxes(
-    title="current (A)",
+    title="current density (mA/cm^2)",
     ticks="inside",
     mirror="ticks",
     linecolor="#444",
@@ -282,7 +286,7 @@ fig3.update_xaxes(
     autorange=False,
 )
 fig3.update_yaxes(
-    title="current (A) | power (W)",
+    title="current density (mA/cm^2) | power density (mW/cm^2)",
     ticks="inside",
     mirror=True,
     linecolor="#444",
@@ -318,7 +322,7 @@ fig4.update_xaxes(
     autorange=False,
 )
 fig4.update_yaxes(
-    title="current (A)",
+    title="current density (mA/cm^2)",
     ticks="inside",
     mirror="ticks",
     linecolor="#444",
@@ -333,7 +337,7 @@ fig5 = plotly.subplots.make_subplots(
     specs=[[{"secondary_y": True}]], subplot_titles=["-"]
 )
 fig5.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="eta"))
-fig5.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="j"), secondary_y=True)
+# fig5.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="j"), secondary_y=True)
 fig5.update_xaxes(
     title="wavelength (nm)",
     ticks="inside",
@@ -354,18 +358,18 @@ fig5.update_yaxes(
     showgrid=False,
     autorange=False,
 )
-fig5.update_yaxes(
-    title="integrated j (A/m^2)",
-    ticks="inside",
-    mirror=True,
-    linecolor="#444",
-    showline=True,
-    zeroline=False,
-    showgrid=False,
-    overlaying="y",
-    secondary_y=True,
-    autorange=False,
-)
+# fig5.update_yaxes(
+#     title="integrated j (A/m^2)",
+#     ticks="inside",
+#     mirror=True,
+#     linecolor="#444",
+#     showline=True,
+#     zeroline=False,
+#     showgrid=False,
+#     overlaying="y",
+#     secondary_y=True,
+#     autorange=False,
+# )
 fig5.update_layout(margin=dict(l=20, r=0, t=30, b=0), plot_bgcolor="rgba(0,0,0,0)")
 
 app = dash.Dash(__name__)
@@ -422,9 +426,7 @@ app.layout = html.Div(
             className="row",
         ),
         dcc.Interval(
-            id="interval-component",
-            interval=1 * 2000,  # in milliseconds
-            n_intervals=0,
+            id="interval-component", interval=1 * 250, n_intervals=0,  # in milliseconds
         ),
     ],
 )
@@ -458,11 +460,11 @@ def update_graph_live(n, g1, g2, g3, g4, g5, paused):
         g5_latest = graph5_latest[0]
 
         # update figures
-        g1 = format_figure_1(g1_latest["data"], g1, g1_latest["msg"]["id"])
-        g2 = format_figure_2(g2_latest["data"], g2, g2_latest["msg"]["id"])
-        g3 = format_figure_3(g3_latest["data"], g3, g3_latest["msg"]["id"])
-        g4 = format_figure_4(g4_latest["data"], g4, g4_latest["msg"]["id"])
-        g5 = format_figure_5(g5_latest["data"], g5, g5_latest["msg"]["id"])
+        g1 = format_figure_1(g1_latest["data"], g1, g1_latest["msg"]["idn"])
+        g2 = format_figure_2(g2_latest["data"], g2, g2_latest["msg"]["idn"])
+        g3 = format_figure_3(g3_latest["data"], g3, g3_latest["msg"]["idn"])
+        g4 = format_figure_4(g4_latest["data"], g4, g4_latest["msg"]["idn"])
+        g5 = format_figure_5(g5_latest["data"], g5, g5_latest["msg"]["idn"])
 
     return g1, g2, g3, g4, g5
 
@@ -479,114 +481,246 @@ def pause_button(paused):
         return "#36C95D"
 
 
-# MQTT on_message callback functions for each graph
-def on_message_1(mqttc, obj, msg):
-    """Act on an MQTT msg.
+def process_ivt(payload, kind):
+    """Calculate derived I-V-t parameters.
 
-    Append or clear V-t data stored in a queue.
+    Parameters
+    ----------
+    payload : dict
+        Payload dictionary.
+    kind : str
+        Kind of measurement data.
     """
-    m = json.loads(msg.payload)
-    data = graph1_latest[0]["data"]
-    if m["clear"] is True:
-        data = np.empty((0, 3))
-    else:
-        t = m["data"][2]
-        v = m["data"][0]
+    data = payload["data"]
+    area = payload["pixel"]["area"]
 
-        data = np.append(data, np.array([[0, v, t]]), axis=0)
+    # calculate current density in mA/cm2
+    j = data[1] * 1000 / area
+    p = data[0] * j
+    data.append(j)
+    data.append(p)
 
-        # time returned by smu is time in s since instrument turned on so measurement
-        # start offset needs to be substracted.
-        t_scaled = data[:, -1] - data[0, -1]
-        data[:, 0] = t_scaled
+    # add processed data back into payload to be sent on
+    payload["data"] = data
+    payload = pickle.dumps(payload)
+    _publish(f"data/processed/{kind}", payload)
 
-    graph1_latest.append({"msg": m, "data": data})
+    return data
 
 
-def on_message_2(mqttc, obj, msg):
-    """Act on an MQTT msg.
+def process_iv(payload):
+    """Calculate derived I-V parameters.
 
-    Append or clear I-V data stored in a queue.
+    Parameters
+    ----------
+    payload : dict
+        Payload dictionary.
     """
-    m = json.loads(msg.payload)
-    data = graph2_latest[0]["data"]
-    if m["clear"] is True:
-        data = np.empty((0, 4))
-    else:
-        if len(data) == 0:
-            data0 = np.array(m["data"][:, [0, 1]])
-            data1 = np.zeros(data0.shape)
-            data = np.append(data0, data1, axis=1)
-        else:
-            data[:, 2:] = np.array(m["data"][:, [0, 1]])
-    graph2_latest.append({"msg": m, "data": data})
+    data = np.array(payload["data"])
+    area = payload["pixel"]["area"]
+
+    # calculate current density in mA/cm2
+    j = data[:, 1] * 1000 / area
+    p = data[:, 0] * j
+    data = np.append(data, j.reshape(len(p), 1), axis=1)
+    data = np.append(data, p.reshape(len(p), 1), axis=1)
+
+    # add processed data back into payload to be sent on
+    payload["data"] = data.tolist()
+    _publish("data/processed/iv_measurement", pickle.dumps(payload))
+
+    return data
 
 
-def on_message_3(mqttc, obj, msg):
-    """Act on an MQTT msg.
+def process_eqe(payload):
+    """Calculate EQE.
 
-    Append or clear MPPT data stored in a queue.
+    Parameters
+    ----------
+    payload : dict
+        Payload dictionary.
+    mqttc : MQTTQueuePublisher
+        MQTT queue publisher client.
     """
-    m = json.loads(msg.payload)
-    data = graph3_latest[0]["data"]
-    if m["clear"] is True:
-        data = np.empty((0, 4))
+    if eqe_calibration is not {}:
+        # read measurement
+        meas = payload["data"]
+        meas_wl = meas[1]
+        meas_sig = meas[-1]
+
+        # get interpolation object
+        cal = np.array(eqe_calibration)
+        cal_wls = cal[:, 1]
+        cal_sig = cal[:, -1]
+        f_cal = sp.interpolate.interp1d(
+            cal_wls, cal_sig, kind="linear", bounds_error=False, fill_value=0
+        )
+
+        # look up ref eqe
+        ref_wls = config["reference"]["calibration"]["eqe"]["wls"]
+        ref_eqe = config["reference"]["calibration"]["eqe"]["eqe"]
+        f_ref = sp.interpolate.interp1d(
+            ref_wls, ref_eqe, kind="linear", bounds_error=False, fill_value=0
+        )
+
+        # calculate eqe and append to data
+        meas_eqe = f_ref(meas_wl) * meas_sig / f_cal(meas_wl)
+        meas.append(meas_eqe)
+
+        # publish
+        payload["data"] = meas
+        _publish("data/processed/eqe_measurement", pickle.dumps(payload))
+
+        return meas
     else:
-        t = m["data"][2]
-        v = m["data"][0]
-        i = m["data"][1]
-        p = v * i
-
-        data = np.append(data, np.array([[0, v, i, p, t]]), axis=0,)
-
-        # time returned by smu is time in s since instrument turned on so measurement
-        # start offset needs to be substracted.
-        t_scaled = data[:, -1] - data[0, -1]
-        data[:, 0] = t_scaled
-
-    graph3_latest.append({"msg": m, "data": data})
+        print("no eqe calibration available")
+        return None
 
 
-def on_message_4(mqttc, obj, msg):
-    """Act on an MQTT msg.
+def _publish(topic, payload):
+    t = threading.Thread(target=_publish_worker, args=(topic, payload,))
+    t.start()
 
-    Append or clear I-t data stored in a queue.
+
+def _publish_worker(topic, payload):
+    """Publish something over MQTT with a fresh client.
+
+    Parameters
+    ----------
+    topic : str
+        Topic to publish to.
+    payload : 
+        Serialised payload to publish.
     """
-    m = json.loads(msg.payload)
-    data = graph4_latest[0]["data"]
-    if m["clear"] is True:
-        data = np.empty((0, 2))
-    else:
-        t = m["data"][2]
-        i = m["data"][1]
-
-        data = np.append(data, np.array([[0, i, t]]), axis=0)
-
-        # time returned by smu is time in s since instrument turned on so measurement
-        # start offset needs to be substracted.
-        t_scaled = data[:, -1] - data[0, -1]
-        data[:, 0] = t_scaled
-
-    graph4_latest.append({"msg": m, "data": data})
+    mqttc = mqtt.Client()
+    mqttc.connect(args.mqtthost)
+    mqttc.loop_start()
+    mqttc.publish(topic, payload, 2).wait_for_publish()
+    mqttc.loop_stop()
+    mqttc.disconnect()
 
 
-def on_message_5(mqttc, obj, msg):
-    """Act on an MQTT msg.
+def read_eqe_cal(payload):
+    """Read calibration from payload.
 
-    Append or clear EQE data stored in a queue.
+    Parameters
+    ----------
+    payload : dict
+        Payload dictionary.
     """
-    m = json.loads(msg.payload)
-    data = graph5_latest[0]["data"]
-    if m["clear"] is True:
-        data = np.empty((0, 3))
-    else:
-        if len(m["data"]) == 13:
-            data = np.append(data, np.array([[m["data"][1], m["data"][-1], 0]]), axis=0)
-        else:
-            data = np.append(
-                data, np.array([[m["data"][1], m["data"][-2], m["data"][-1]]]), axis=0
-            )
-    graph5_latest.append({"msg": m, "data": data})
+    global eqe_calibration
+
+    print("reading eqe cal...")
+
+    eqe_calibration = payload["data"]
+
+
+def read_config(payload):
+    """Get config data from payload.
+
+    Parameters
+    ----------
+    payload : dict
+        Request dictionary for measurement server.
+    """
+    global config
+
+    print("reading config...")
+
+    config = payload["config"]
+
+
+def on_message(mqttc, obj, msg):
+    """Act on an MQTT message."""
+    payload = pickle.loads(msg.payload)
+
+    topic_list = msg.topic.split("/")
+
+    if (topic_list[0] == "data") and (topic_list[1] == "raw"):
+        if (measurement := topic_list[2]) == "vt_measurement":
+            data = graph1_latest[0]["data"]
+            if payload["clear"] is True:
+                print("vt clear")
+                data = np.empty((0, 3))
+            else:
+                pdata = process_ivt(payload, measurement)
+                t = pdata[2]
+                v = pdata[0]
+
+                data = np.append(data, np.array([[0, v, t]]), axis=0)
+
+                # time returned by smu is time in s since instrument turned on so measurement
+                # start offset needs to be substracted.
+                t_scaled = data[:, -1] - data[0, -1]
+                data[:, 0] = t_scaled
+            graph1_latest.append({"msg": payload, "data": data})
+        elif measurement == "iv_measurement":
+            data = graph2_latest[0]["data"]
+            if payload["clear"] is True:
+                print("iv clear")
+                data = np.empty((0, 4))
+            else:
+                pdata = process_iv(payload)
+                if len(data) == 0:
+                    data0 = np.array(pdata[:, [0, 4]])
+                    data1 = np.zeros(data0.shape)
+                    data = np.append(data0, data1, axis=1)
+                else:
+                    data[:, 2:] = np.array(pdata[:, [0, 4]])
+            graph2_latest.append({"msg": payload, "data": data})
+        elif measurement == "mppt_measurement":
+            data = graph3_latest[0]["data"]
+            if payload["clear"] is True:
+                print("mppt clear")
+                data = np.empty((0, 5))
+            else:
+                pdata = process_ivt(payload, measurement)
+                t = pdata[2]
+                v = pdata[0]
+                j = pdata[4]
+                p = pdata[5]
+
+                data = np.append(data, np.array([[0, v, j, p, t]]), axis=0,)
+
+                # time returned by smu is time in s since instrument turned on so
+                # measurement start offset needs to be substracted.
+                t_scaled = data[:, -1] - data[0, -1]
+                data[:, 0] = t_scaled
+            graph3_latest.append({"msg": payload, "data": data})
+        elif measurement == "it_measurement":
+            data = graph4_latest[0]["data"]
+            if payload["clear"] is True:
+                print("it clear")
+                data = np.empty((0, 3))
+            else:
+                pdata = process_ivt(payload, measurement)
+                t = pdata[2]
+                j = pdata[4]
+
+                data = np.append(data, np.array([[0, j, t]]), axis=0)
+
+                # time returned by smu is time in s since instrument turned on so
+                # measurement start offset needs to be substracted.
+                t_scaled = data[:, -1] - data[0, -1]
+                data[:, 0] = t_scaled
+            graph4_latest.append({"msg": payload, "data": data})
+        elif measurement == "eqe_measurement":
+            data = graph5_latest[0]["data"]
+            if payload["clear"] is True:
+                print("eqe clear")
+                data = np.empty((0, 2))
+            else:
+                pdata = process_eqe(payload)
+                if pdata is not None:
+                    wl = pdata[1]
+                    eqe = pdata[-1]
+                    data = np.append(data, np.array([[wl, eqe]]), axis=0)
+            graph5_latest.append({"msg": payload, "data": data})
+    elif topic_list[0] == "calibration":
+        if (measurement := topic_list[1]) == "eqe":
+            read_eqe_cal(payload)
+    elif msg.topic == "measurement/run":
+        read_config(payload)
 
 
 if __name__ == "__main__":
@@ -594,46 +728,41 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-mqtt-host",
+        "-mqtthost",
         type=str,
-        default="",
+        default="127.0.0.1",
         help="IP address or hostname for MQTT broker.",
     )
     parser.add_argument(
-        "-dash-host",
+        "-dashhost",
         type=str,
-        default="",
+        default="127.0.0.1",
         help="IP address or hostname for dash server.",
     )
 
     args = parser.parse_args()
 
-    MQTTHOST = args.mqtt_host
-    DASHHOST = args.dash_host
+    # init empty dicts for caching latest data
+    config = {}
+    eqe_calibration = {}
 
-    subtopics = []
-    subtopics.append(f"data/vt")
-    subtopics.append(f"data/iv")
-    subtopics.append(f"data/mppt")
-    subtopics.append(f"data/it")
-    subtopics.append(f"data/eqe")
+    # create mqtt client id
+    client_id = f"plotter-{uuid.uuid4().hex}"
 
-    on_messages = [on_message_1, on_message_2, on_message_3, on_message_4, on_message_5]
+    mqtt_analyser = mqtt.Client(client_id)
+    mqtt_analyser.on_message = on_message
 
-    # start a new mqtt subscriber client for each subtopic, each in its own thread
-    mqtt_clients = []
-    for subtopic, on_msg in zip(subtopics, on_messages):
-        mqttc = mqtt.Client()
-        mqtt_clients.append(mqttc)
-        mqttc.on_message = on_msg
-        mqttc.connect(MQTTHOST)
-        mqttc.subscribe(subtopic, qos=2)
-        mqttc.loop_start()
+    # connect MQTT client to broker
+    mqtt_analyser.connect(args.mqtthost)
+
+    # subscribe to data and request topics
+    mqtt_analyser.subscribe("data/raw/#", qos=2)
+    mqtt_analyser.subscribe("calibration/eqe", qos=2)
+    mqtt_analyser.subscribe("measurement/run", qos=2)
+
+    print(f"{client_id} connected!")
+
+    mqtt_analyser.loop_start()
 
     # start dash server
-    app.run_server(host=DASHHOST, debug=False)
-
-    # stop mqtt client threads
-    for mqttc in mqtt_clients:
-        mqttc.loop_stop()
-        mqttc.disconnect()
+    app.run_server(host=args.dashhost, debug=False)
