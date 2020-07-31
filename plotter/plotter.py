@@ -13,6 +13,7 @@ import dash_html_components as html
 import numpy as np
 import paho.mqtt.client as mqtt
 import plotly
+import plotly.subplots
 import plotly.graph_objs as go
 
 
