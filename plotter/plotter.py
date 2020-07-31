@@ -15,6 +15,8 @@ import paho.mqtt.client as mqtt
 import plotly
 import plotly.subplots
 import plotly.graph_objs as go
+import scipy as sp
+import scipy.interpolate
 
 
 def format_figure_1(data, fig, title="-"):
@@ -712,6 +714,7 @@ def on_message(mqttc, obj, msg):
                 data = np.empty((0, 2))
             else:
                 pdata = process_eqe(payload)
+                print(pdata)
                 if pdata is not None:
                     wl = pdata[1]
                     eqe = pdata[-1]
