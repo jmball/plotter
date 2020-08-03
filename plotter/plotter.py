@@ -549,12 +549,14 @@ def process_eqe(payload):
         # read measurement
         meas = payload["data"]
         meas_wl = meas[1]
-        meas_sig = meas[-1]
+        # ratio signal R/Aux In 1 to correct for intensity drift
+        meas_sig = meas[8] / meas[4]
 
         # get interpolation object
         cal = np.array(eqe_calibration)
         cal_wls = cal[:, 1]
-        cal_sig = cal[:, -1]
+        # ratio signal R/Aux In 1 to correct for intensity drift
+        cal_sig = cal[:, 8] / cal[:, 4]
         f_cal = sp.interpolate.interp1d(
             cal_wls, cal_sig, kind="linear", bounds_error=False, fill_value=0
         )
@@ -714,7 +716,6 @@ def on_message(mqttc, obj, msg):
                 data = np.empty((0, 2))
             else:
                 pdata = process_eqe(payload)
-                print(pdata)
                 if pdata is not None:
                     wl = pdata[1]
                     eqe = pdata[-1]
