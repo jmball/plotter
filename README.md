@@ -1,2 +1,2 @@
-# otter_plotter
+# plotter
 Plot live data
