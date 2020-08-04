@@ -8,7 +8,7 @@ except LookupError:
     __version__ = None
 
 # get version if package has been installed
-if __version__ == None:
+if __version__ is None:
     try:
         __version__ = get_distribution(__name__).version
     except DistributionNotFound:

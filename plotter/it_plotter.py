@@ -16,8 +16,43 @@ import plotly.subplots
 import plotly.graph_objs as go
 
 
-def format_figure_2(data, fig, title="-"):
-    """Format figure type 2.
+def format_figure_1(data, fig, title="-"):
+    """Format figure type 1.
+
+    Parameters
+    ----------
+    data : array
+        Array of data.
+    fig : dict
+        Dictionary representation of Plotly figure.
+    title : str
+        Title of plot.
+
+    Returns
+    -------
+    fig : dict
+        Dictionary representation of Plotly figure.
+    """
+    if len(data) == 0:
+        # if request to clear has been issued, return cleared figure
+        return fig
+    else:
+        # add data to fig
+        fig["data"][0]["x"] = data[:, 0]
+        fig["data"][0]["y"] = data[:, 1]
+
+        # update ranges
+        fig["layout"]["xaxis"]["range"] = [min(data[:, 0]), max(data[:, 0])]
+        fig["layout"]["yaxis"]["range"] = [min(data[:, 1]), max(data[:, 1])]
+
+        # update title
+        fig["layout"]["annotations"][0]["text"] = title
+
+        return fig
+
+
+def format_figure_4(data, fig, title="-"):
+    """Format figure type 4.
 
     Parameters
     ----------
@@ -33,50 +68,22 @@ def format_figure_2(data, fig, title="-"):
     fig : plotly.graph_objs.Figure
         Updated plotly figure.
     """
-    if len(data) == 0:
-        # if request to clear has been issued, return cleared figure
-        return fig
-    else:
-        # add data to fig
-        fig["data"][0]["x"] = data[:, 0]
-        fig["data"][0]["y"] = data[:, 1]
-
-        if np.all(data[:, 2] != np.zeros(len(data[:, 2]))):
-            fig["data"][1]["x"] = data[:, 2]
-            fig["data"][1]["y"] = data[:, 3]
-
-        # update ranges
-        xrange = [
-            min(np.append(data[:, 0], data[:, 2])),
-            max(np.append(data[:, 0], data[:, 2])),
-        ]
-        yrange = [
-            min(np.append(data[:, 1], data[:, 3])),
-            max(np.append(data[:, 1], data[:, 3])),
-        ]
-        fig["layout"]["xaxis"]["range"] = xrange
-        fig["layout"]["yaxis"]["range"] = yrange
-
-        # update title
-        fig["layout"]["annotations"][0]["text"] = title
-
-        return fig
+    return format_figure_1(data, fig, title)
 
 
 # create thread-safe containers for storing latest data and plot info
-graph2_latest = collections.deque(maxlen=1)
+graph4_latest = collections.deque(maxlen=1)
 paused = collections.deque(maxlen=1)
 paused.append(False)
 
 # initialise plot info/data queues
-graph2_latest.append({"msg": {"clear": True, "idn": "-"}, "data": np.empty((0, 4))})
+graph4_latest.append({"msg": {"clear": True, "idn": "-"}, "data": np.empty((0, 3))})
 
 # initial figure properties
-fig2 = plotly.subplots.make_subplots(subplot_titles=["-"])
-fig2.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="scan0"))
-fig2.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="scan1"))
-fig2.update_xaxes(
-    title="voltage (V)",
+fig4 = plotly.subplots.make_subplots(subplot_titles=["-"])
+fig4.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="j"))
+fig4.update_xaxes(
+    title="time (s)",
     ticks="inside",
     mirror="ticks",
     linecolor="#444",
@@ -85,7 +92,7 @@ fig2.update_xaxes(
     showgrid=False,
     autorange=False,
 )
-fig2.update_yaxes(
+fig4.update_yaxes(
     title="current density (mA/cm^2)",
     ticks="inside",
     mirror="ticks",
@@ -95,14 +102,14 @@ fig2.update_yaxes(
     showgrid=False,
     autorange=False,
 )
-fig2.update_layout(margin=dict(l=20, r=0, t=30, b=0), plot_bgcolor="rgba(0,0,0,0)")
+fig4.update_layout(margin=dict(l=20, r=0, t=30, b=0), plot_bgcolor="rgba(0,0,0,0)")
 
 app = dash.Dash(__name__)
 
 app.layout = html.Div(
     html.Div(
         [
-            dcc.Graph(id="g2", figure=fig2, style={"width": "95vw", "height": "95vh"}),
+            dcc.Graph(id="g4", figure=fig4, style={"width": "95vw", "height": "95vh"}),
             dcc.Interval(id="interval-component", interval=1 * 250, n_intervals=0,),
         ],
     ),
@@ -110,41 +117,44 @@ app.layout = html.Div(
 
 
 @app.callback(
-    [dash.dependencies.Output("g2", "figure")],
+    [dash.dependencies.Output("g4", "figure")],
     [dash.dependencies.Input("interval-component", "n_intervals")],
-    [dash.dependencies.State("g2", "figure")],
+    [dash.dependencies.State("g4", "figure")],
 )
-def update_graph_live(n, g2):
+def update_graph_live(n, g4):
     """Update graph."""
     if paused[0] is False:
-        g2_latest = graph2_latest[0]
+        g4_latest = graph4_latest[0]
 
         # update figures
-        g2 = format_figure_2(g2_latest["data"], g2, g2_latest["msg"]["idn"])
+        g4 = format_figure_4(g4_latest["data"], g4, g4_latest["msg"]["idn"])
 
-    return [g2]
+    return [g4]
 
 
-def process_iv(payload):
-    """Calculate derived I-V parameters.
+def process_ivt(payload, kind):
+    """Calculate derived I-V-t parameters.
 
     Parameters
     ----------
     payload : dict
         Payload dictionary.
+    kind : str
+        Kind of measurement data.
     """
-    data = np.array(payload["data"])
+    data = payload["data"]
     area = payload["pixel"]["area"]
 
     # calculate current density in mA/cm2
-    j = data[:, 1] * 1000 / area
-    p = data[:, 0] * j
-    data = np.append(data, j.reshape(len(p), 1), axis=1)
-    data = np.append(data, p.reshape(len(p), 1), axis=1)
+    j = data[1] * 1000 / area
+    p = data[0] * j
+    data.append(j)
+    data.append(p)
 
     # add processed data back into payload to be sent on
-    payload["data"] = data.tolist()
-    _publish("data/processed/iv_measurement", pickle.dumps(payload))
+    payload["data"] = data
+    payload = pickle.dumps(payload)
+    _publish(f"data/processed/{kind}", payload)
 
     return data
 
@@ -161,7 +171,7 @@ def _publish_worker(topic, payload):
     ----------
     topic : str
         Topic to publish to.
-    payload : 
+    payload :
         Serialised payload to publish.
     """
     mqttc = mqtt.Client()
@@ -191,20 +201,23 @@ def on_message(mqttc, obj, msg):
     """Act on an MQTT message."""
     payload = pickle.loads(msg.payload)
 
-    if msg.topic == "data/raw/iv_measurement":
-        data = graph2_latest[0]["data"]
+    if msg.topic == "data/raw/it_measurement":
+        data = graph4_latest[0]["data"]
         if payload["clear"] is True:
-            print("iv clear")
-            data = np.empty((0, 4))
+            print("it clear")
+            data = np.empty((0, 3))
         else:
-            pdata = process_iv(payload)
-            if len(data) == 0:
-                data0 = np.array(pdata[:, [0, 4]])
-                data1 = np.zeros(data0.shape)
-                data = np.append(data0, data1, axis=1)
-            else:
-                data[:, 2:] = np.array(pdata[:, [0, 4]])
-        graph2_latest.append({"msg": payload, "data": data})
+            pdata = process_ivt(payload, "it_measurement")
+            t = pdata[2]
+            j = pdata[4]
+
+            data = np.append(data, np.array([[0, j, t]]), axis=0)
+
+            # time returned by smu is time in s since instrument turned on so
+            # measurement start offset needs to be substracted.
+            t_scaled = data[:, -1] - data[0, -1]
+            data[:, 0] = t_scaled
+        graph4_latest.append({"msg": payload, "data": data})
     elif msg.topic == "measurement/run":
         read_config(payload)
     elif msg.topic == "plotter/pause":
@@ -247,7 +260,7 @@ if __name__ == "__main__":
     mqtt_analyser.connect(args.mqtthost)
 
     # subscribe to data and request topics
-    mqtt_analyser.subscribe("data/raw/iv_measurement", qos=2)
+    mqtt_analyser.subscribe("data/raw/it_measurement", qos=2)
     mqtt_analyser.subscribe("plotter/pause", qos=2)
     mqtt_analyser.subscribe("measurement/run", qos=2)
 
@@ -256,4 +269,5 @@ if __name__ == "__main__":
     mqtt_analyser.loop_start()
 
     # start dash server
-    app.run_server(host=args.dashhost, port=8052, debug=False)
+    app.run_server(host=args.dashhost, port=8054, debug=False)
+

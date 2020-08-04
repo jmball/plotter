@@ -8,15 +8,12 @@ import uuid
 
 import dash
 import dash_core_components as dcc
-import dash_daq as daq
 import dash_html_components as html
 import numpy as np
 import paho.mqtt.client as mqtt
 import plotly
 import plotly.subplots
 import plotly.graph_objs as go
-import scipy as sp
-import scipy.interpolate
 
 
 def format_figure_1(data, fig, title="-"):
@@ -154,7 +151,7 @@ def _publish_worker(topic, payload):
     ----------
     topic : str
         Topic to publish to.
-    payload : 
+    payload :
         Serialised payload to publish.
     """
     mqttc = mqtt.Client()
