@@ -305,4 +305,4 @@ if __name__ == "__main__":
     mqtt_analyser.loop_start()
 
     # start dash server
-    app.run_server(host=args.dashhost, port=8054, debug=False)
+    app.run_server(host=args.dashhost, port=8055, debug=False)
