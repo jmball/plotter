@@ -243,13 +243,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-mqtthost",
+        "--mqtthost",
         type=str,
         default="127.0.0.1",
         help="IP address or hostname for MQTT broker.",
     )
     parser.add_argument(
-        "-dashhost",
+        "--dashhost",
         type=str,
         default="127.0.0.1",
         help="IP address or hostname for dash server.",
