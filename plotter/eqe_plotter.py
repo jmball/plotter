@@ -106,7 +106,7 @@ fig5.update_yaxes(
 #     autorange=False,
 # )
 fig5.update_layout(
-    font={"size": 18}, margin=dict(l=20, r=0, t=30, b=0), plot_bgcolor="rgba(0,0,0,0)"
+    font={"size": 16}, margin=dict(l=20, r=0, t=30, b=0), plot_bgcolor="rgba(0,0,0,0)"
 )
 
 app = dash.Dash(__name__)
