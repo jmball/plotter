@@ -109,7 +109,9 @@ fig3.update_yaxes(
     secondary_y=True,
     autorange=False,
 )
-fig3.update_layout(margin=dict(l=20, r=0, t=30, b=0), plot_bgcolor="rgba(0,0,0,0)")
+fig3.update_layout(
+    font={"size": 18}, margin=dict(l=20, r=0, t=30, b=0), plot_bgcolor="rgba(0,0,0,0)"
+)
 
 app = dash.Dash(__name__)
 
