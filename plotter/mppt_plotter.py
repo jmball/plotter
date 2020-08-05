@@ -88,7 +88,7 @@ fig3.update_xaxes(
     autorange=False,
 )
 fig3.update_yaxes(
-    title="current density (mA/cm^2) | power density (mW/cm^2)",
+    title="J (mA/cm^2) | P (mW/cm^2)",
     ticks="inside",
     mirror=True,
     linecolor="#444",

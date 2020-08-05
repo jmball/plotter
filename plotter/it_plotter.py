@@ -93,7 +93,7 @@ fig4.update_xaxes(
     autorange=False,
 )
 fig4.update_yaxes(
-    title="current density (mA/cm^2)",
+    title="J (mA/cm^2)",
     ticks="inside",
     mirror="ticks",
     linecolor="#444",

@@ -76,7 +76,7 @@ fig2 = plotly.subplots.make_subplots(subplot_titles=["-"])
 fig2.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="scan0"))
 fig2.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="scan1"))
 fig2.update_xaxes(
-    title="voltage (V)",
+    title="bias (V)",
     ticks="inside",
     mirror="ticks",
     linecolor="#444",
@@ -86,7 +86,7 @@ fig2.update_xaxes(
     autorange=False,
 )
 fig2.update_yaxes(
-    title="current density (mA/cm^2)",
+    title="J (mA/cm^2)",
     ticks="inside",
     mirror="ticks",
     linecolor="#444",
@@ -221,13 +221,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-mqtthost",
+        "--mqtthost",
         type=str,
         default="127.0.0.1",
         help="IP address or hostname for MQTT broker.",
     )
     parser.add_argument(
-        "-dashhost",
+        "--dashhost",
         type=str,
         default="127.0.0.1",
         help="IP address or hostname for dash server.",

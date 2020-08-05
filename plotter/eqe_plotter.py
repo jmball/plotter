@@ -84,7 +84,7 @@ fig5.update_xaxes(
     autorange=False,
 )
 fig5.update_yaxes(
-    title="eqe (%)",
+    title="EQE (%)",
     ticks="inside",
     mirror=True,
     linecolor="#444",
