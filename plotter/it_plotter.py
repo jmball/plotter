@@ -223,10 +223,8 @@ def on_message(mqttc, obj, msg):
     elif msg.topic == "measurement/run":
         read_config(payload)
     elif msg.topic == "plotter/pause":
-        if paused[0] is True:
-            paused.append(False)
-        else:
-            paused.append(True)
+        print(f"pause: {payload}")
+        paused.append(payload)
 
 
 if __name__ == "__main__":
