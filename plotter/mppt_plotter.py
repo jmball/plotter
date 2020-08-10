@@ -96,6 +96,8 @@ fig3.update_yaxes(
     showline=True,
     zeroline=False,
     showgrid=False,
+    overlaying="y",
+    secondary_y=True,
     autorange=False,
 )
 fig3.update_yaxes(
@@ -106,8 +108,8 @@ fig3.update_yaxes(
     showline=True,
     zeroline=False,
     showgrid=False,
-    overlaying="y",
-    secondary_y=True,
+    #overlaying="y",
+    secondary_y=False,
     autorange=False,
 )
 fig3.update_layout(
@@ -155,12 +157,12 @@ def process_ivt(payload, kind):
     kind : str
         Kind of measurement data.
     """
-    data = payload["data"]
+    data = list(payload["data"])
     area = payload["pixel"]["area"]
 
     # calculate current density in mA/cm2
     j = data[1] * 1000 / area
-    p = data[0] * j
+    p = data[0] * j * -1
     data.append(j)
     data.append(p)
 
