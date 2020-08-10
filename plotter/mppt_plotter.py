@@ -226,7 +226,7 @@ def on_message(mqttc, obj, msg):
             j = pdata[4]
             p = pdata[5]
 
-            data = np.append(data, np.array([[0, v, j, p, t]]), axis=0,)
+            data = np.append(data, np.array([[0, j, p, v, t]]), axis=0,)
 
             # time returned by smu is time in s since instrument turned on so
             # measurement start offset needs to be substracted.
