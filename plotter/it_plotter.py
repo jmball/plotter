@@ -2,6 +2,7 @@
 """Plot data obtained from MQTT broker using Dash."""
 
 import collections
+import logging
 import pickle
 import threading
 import uuid
@@ -107,6 +108,9 @@ fig4.update_layout(
 )
 
 app = dash.Dash(__name__)
+
+log = logging.getLogger("werkzeug")
+log.disabled = True
 
 app.layout = html.Div(
     html.Div(
