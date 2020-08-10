@@ -96,8 +96,8 @@ fig3.update_yaxes(
     showline=True,
     zeroline=False,
     showgrid=False,
-    overlaying="y",
-    secondary_y=True,
+    # overlaying="y",
+    secondary_y=False,
     autorange=False,
 )
 fig3.update_yaxes(
@@ -108,8 +108,8 @@ fig3.update_yaxes(
     showline=True,
     zeroline=False,
     showgrid=False,
-    #overlaying="y",
-    secondary_y=False,
+    overlaying="y",
+    secondary_y=True,
     autorange=False,
 )
 fig3.update_layout(
@@ -162,7 +162,7 @@ def process_ivt(payload, kind):
 
     # calculate current density in mA/cm2
     j = data[1] * 1000 / area
-    p = data[0] * j * -1
+    p = data[0] * j
     data.append(j)
     data.append(p)
 
@@ -226,7 +226,8 @@ def on_message(mqttc, obj, msg):
             t = pdata[2]
             v = pdata[0]
             j = pdata[4]
-            p = pdata[5]
+            # convert power to power output
+            p = -1 * pdata[5]
 
             data = np.append(data, np.array([[0, j, p, v, t]]), axis=0,)
 
