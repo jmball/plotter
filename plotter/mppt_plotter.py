@@ -89,7 +89,7 @@ fig3.update_xaxes(
     autorange=False,
 )
 fig3.update_yaxes(
-    title="J (mA/cm^2) | P (mW/cm^2)",
+    title="|J| (mA/cm^2), |P| (mW/cm^2)",
     ticks="inside",
     mirror=True,
     linecolor="#444",
@@ -225,9 +225,8 @@ def on_message(mqttc, obj, msg):
             pdata = process_ivt(payload, "mppt_measurement")
             t = pdata[2]
             v = pdata[0]
-            j = pdata[4]
-            # convert power to power output
-            p = -1 * pdata[5]
+            j = abs(pdata[4])
+            p = abs(pdata[5])
 
             data = np.append(data, np.array([[0, j, p, v, t]]), axis=0,)
 
