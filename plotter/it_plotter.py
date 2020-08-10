@@ -148,7 +148,7 @@ def process_ivt(payload, kind):
     kind : str
         Kind of measurement data.
     """
-    data = payload["data"]
+    data = list(payload["data"])
     area = payload["pixel"]["area"]
 
     # calculate current density in mA/cm2
