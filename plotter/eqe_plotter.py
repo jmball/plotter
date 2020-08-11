@@ -4,6 +4,7 @@
 import collections
 import logging
 import pickle
+import queue
 import threading
 import uuid
 
@@ -65,6 +66,9 @@ graph5_latest = collections.deque(maxlen=1)
 paused = collections.deque(maxlen=1)
 paused.append(False)
 
+# queue from which processed data is published with mqtt
+processed_q = queue.Queue()
+
 # initialise plot info/data queues
 graph5_latest.append({"msg": {"clear": True, "idn": "-"}, "data": np.empty((0, 2))})
 
@@ -73,7 +77,6 @@ fig5 = plotly.subplots.make_subplots(
     specs=[[{"secondary_y": True}]], subplot_titles=["-"]
 )
 fig5.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="eta"))
-# fig5.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="j"), secondary_y=True)
 fig5.update_xaxes(
     title="wavelength (nm)",
     ticks="inside",
@@ -94,18 +97,6 @@ fig5.update_yaxes(
     showgrid=False,
     autorange=False,
 )
-# fig5.update_yaxes(
-#     title="integrated j (A/m^2)",
-#     ticks="inside",
-#     mirror=True,
-#     linecolor="#444",
-#     showline=True,
-#     zeroline=False,
-#     showgrid=False,
-#     overlaying="y",
-#     secondary_y=True,
-#     autorange=False,
-# )
 fig5.update_layout(
     font={"size": 16}, margin=dict(l=20, r=0, t=30, b=0), plot_bgcolor="rgba(0,0,0,0)"
 )
@@ -141,15 +132,15 @@ def update_graph_live(n, g5):
     return [g5]
 
 
-def process_eqe(payload):
+def process_eqe(payload, kind):
     """Calculate EQE.
 
     Parameters
     ----------
     payload : dict
         Payload dictionary.
-    mqttc : MQTTQueuePublisher
-        MQTT queue publisher client.
+    kind : str
+        Kind of measurement data.
     """
     if eqe_calibration is not {}:
         # read measurement
@@ -180,35 +171,12 @@ def process_eqe(payload):
 
         # publish
         payload["data"] = meas
-        _publish("data/processed/eqe_measurement", pickle.dumps(payload))
+        processed_q.put([f"data/processed/{kind}", payload])
 
         return meas
     else:
         print("no eqe calibration available")
         return None
-
-
-def _publish(topic, payload):
-    t = threading.Thread(target=_publish_worker, args=(topic, payload,))
-    t.start()
-
-
-def _publish_worker(topic, payload):
-    """Publish something over MQTT with a fresh client.
-
-    Parameters
-    ----------
-    topic : str
-        Topic to publish to.
-    payload :
-        Serialised payload to publish.
-    """
-    mqttc = mqtt.Client()
-    mqttc.connect(args.mqtthost)
-    mqttc.loop_start()
-    mqttc.publish(topic, payload, 2).wait_for_publish()
-    mqttc.loop_stop()
-    mqttc.disconnect()
 
 
 def read_eqe_cal(payload):
@@ -251,7 +219,7 @@ def on_message(mqttc, obj, msg):
             print("eqe clear")
             data = np.empty((0, 2))
         else:
-            pdata = process_eqe(payload)
+            pdata = process_eqe(payload, "eqe_measurement")
             if pdata is not None:
                 wl = pdata[1]
                 eqe = pdata[-1]
@@ -264,6 +232,20 @@ def on_message(mqttc, obj, msg):
     elif msg.topic == "plotter/pause":
         print(f"pause: {payload}")
         paused.append(payload)
+
+
+def publish_worker(mqttc):
+    """Publish payloads added to queue.
+
+    Parameters
+    ----------
+    mqttc : mqtt.Client
+        MQTT client.
+    """
+    while True:
+        topic, payload = processed_q.get()
+        mqttc.publish(topic, pickle.dumps(payload), 2).wait_for_publish()
+        processed_q.task_done()
 
 
 if __name__ == "__main__":
@@ -303,6 +285,9 @@ if __name__ == "__main__":
     mqtt_analyser.subscribe("data/raw/eqe_measurement", qos=2)
     mqtt_analyser.subscribe("plotter/pause", qos=2)
     mqtt_analyser.subscribe("measurement/run", qos=2)
+
+    # start the sender (publishes messages from worker and manager)
+    threading.Thread(target=publish_worker, args=(mqtt_analyser,), daemon=True).start()
 
     print(f"{client_id} connected!")
 

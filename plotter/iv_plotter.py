@@ -4,6 +4,7 @@
 import collections
 import logging
 import pickle
+import queue
 import threading
 import uuid
 
@@ -69,6 +70,9 @@ graph2_latest = collections.deque(maxlen=1)
 paused = collections.deque(maxlen=1)
 paused.append(False)
 
+# queue from which processed data is published with mqtt
+processed_q = queue.Queue()
+
 # initialise plot info/data queues
 graph2_latest.append({"msg": {"clear": True, "idn": "-"}, "data": np.empty((0, 4))})
 
@@ -131,13 +135,15 @@ def update_graph_live(n, g2):
     return [g2]
 
 
-def process_iv(payload):
+def process_iv(payload, kind):
     """Calculate derived I-V parameters.
 
     Parameters
     ----------
     payload : dict
         Payload dictionary.
+    kind : str
+        Kind of measurement data.
     """
     data = np.array(payload["data"])
     area = payload["pixel"]["area"]
@@ -150,32 +156,9 @@ def process_iv(payload):
 
     # add processed data back into payload to be sent on
     payload["data"] = data.tolist()
-    _publish("data/processed/iv_measurement", pickle.dumps(payload))
+    processed_q.put([f"data/processed/{kind}", payload])
 
     return data
-
-
-def _publish(topic, payload):
-    t = threading.Thread(target=_publish_worker, args=(topic, payload,))
-    t.start()
-
-
-def _publish_worker(topic, payload):
-    """Publish something over MQTT with a fresh client.
-
-    Parameters
-    ----------
-    topic : str
-        Topic to publish to.
-    payload : 
-        Serialised payload to publish.
-    """
-    mqttc = mqtt.Client()
-    mqttc.connect(args.mqtthost)
-    mqttc.loop_start()
-    mqttc.publish(topic, payload, 2).wait_for_publish()
-    mqttc.loop_stop()
-    mqttc.disconnect()
 
 
 def read_config(payload):
@@ -203,7 +186,7 @@ def on_message(mqttc, obj, msg):
             print("iv clear")
             data = np.empty((0, 4))
         else:
-            pdata = process_iv(payload)
+            pdata = process_iv(payload, "iv_measurement")
             if len(data) == 0:
                 data0 = np.array(pdata[:, [0, 4]])
                 data1 = np.zeros(data0.shape)
@@ -216,6 +199,20 @@ def on_message(mqttc, obj, msg):
     elif msg.topic == "plotter/pause":
         print(f"pause: {payload}")
         paused.append(payload)
+
+
+def publish_worker(mqttc):
+    """Publish payloads added to queue.
+
+    Parameters
+    ----------
+    mqttc : mqtt.Client
+        MQTT client.
+    """
+    while True:
+        topic, payload = processed_q.get()
+        mqttc.publish(topic, pickle.dumps(payload), 2).wait_for_publish()
+        processed_q.task_done()
 
 
 if __name__ == "__main__":
@@ -254,6 +251,9 @@ if __name__ == "__main__":
     mqtt_analyser.subscribe("data/raw/iv_measurement", qos=2)
     mqtt_analyser.subscribe("plotter/pause", qos=2)
     mqtt_analyser.subscribe("measurement/run", qos=2)
+
+    # start the sender (publishes messages from worker and manager)
+    threading.Thread(target=publish_worker, args=(mqtt_analyser,), daemon=True).start()
 
     print(f"{client_id} connected!")
 

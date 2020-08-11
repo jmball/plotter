@@ -69,6 +69,8 @@ def format_figure_3(data, fig, title="-"):
 graph3_latest = collections.deque(maxlen=1)
 paused = collections.deque(maxlen=1)
 paused.append(False)
+
+# queue from which processed data is published with mqtt
 processed_q = queue.Queue()
 
 # initialise plot info/data queues
@@ -208,8 +210,6 @@ def process_ivt(payload, kind):
 
     # add processed data back into payload to be sent on
     payload["data"] = data
-    # payload = pickle.dumps(payload)
-    # _publish(f"data/processed/{kind}", payload)
     processed_q.put([f"data/processed/{kind}", payload])
 
     return data
