@@ -46,16 +46,17 @@ def format_figure_3(data, fig, title="-"):
         fig["data"][2]["x"] = data[:, 0]
         fig["data"][2]["y"] = data[:, 3]
 
-        # update ranges
+        # # update ranges
         xrange = [min(data[:, 0]), max(data[:, 0])]
-        yrange = [
-            min(np.append(data[:, 1], data[:, 2])),
-            max(np.append(data[:, 1], data[:, 2])),
-        ]
-        yrange2 = [min(data[:, 3]), max(data[:, 3])]
+        yrange = [min(data[:, 1]), max(data[:, 1])]
+        yrange2 = [min(data[:, 2]), max(data[:, 2])]
+        yrange3 = [min(data[:, 3]), max(data[:, 3])]
         fig["layout"]["xaxis"]["range"] = xrange
+        fig["layout"]["xaxis2"]["range"] = xrange
+        fig["layout"]["xaxis3"]["range"] = xrange
         fig["layout"]["yaxis"]["range"] = yrange
         fig["layout"]["yaxis2"]["range"] = yrange2
+        fig["layout"]["yaxis3"]["range"] = yrange3
 
         # update title
         fig["layout"]["annotations"][0]["text"] = title
@@ -73,11 +74,12 @@ graph3_latest.append({"msg": {"clear": True, "idn": "-"}, "data": np.empty((0, 5
 
 # initial figure properties
 fig3 = plotly.subplots.make_subplots(
-    specs=[[{"secondary_y": True}]], subplot_titles=["-"]
+    rows=3, cols=1, shared_xaxes=True, subplot_titles=["-"], vertical_spacing=0.02
 )
-fig3.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="j"))
-fig3.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="p"))
-fig3.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="v"), secondary_y=True)
+fig3.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="j"), row=1, col=1)
+fig3.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="p"), row=2, col=1)
+fig3.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="v"), row=3, col=1)
+
 fig3.update_xaxes(
     title="time (s)",
     ticks="inside",
@@ -87,18 +89,54 @@ fig3.update_xaxes(
     zeroline=False,
     showgrid=False,
     autorange=False,
+    row=3,
+    col=1,
+)
+fig3.update_xaxes(
+    ticks="inside",
+    mirror="ticks",
+    linecolor="#444",
+    showline=True,
+    zeroline=False,
+    showgrid=False,
+    autorange=False,
+    row=2,
+    col=1,
+)
+fig3.update_xaxes(
+    ticks="inside",
+    mirror="ticks",
+    linecolor="#444",
+    showline=True,
+    zeroline=False,
+    showgrid=False,
+    autorange=False,
+    row=1,
+    col=1,
 )
 fig3.update_yaxes(
-    title="|J| (mA/cm^2), |P| (mW/cm^2)",
+    title="|J| (mA/cm^2)",
     ticks="inside",
     mirror=True,
     linecolor="#444",
     showline=True,
     zeroline=False,
     showgrid=False,
-    # overlaying="y",
-    secondary_y=False,
     autorange=False,
+    row=1,
+    col=1,
+)
+fig3.update_yaxes(
+    title="|P| (mW/cm^2)",
+    ticks="inside",
+    mirror=True,
+    linecolor="#444",
+    showline=True,
+    zeroline=False,
+    showgrid=False,
+    autorange=False,
+    row=2,
+    col=1,
 )
 fig3.update_yaxes(
     title="voltage (V)",
@@ -108,9 +146,9 @@ fig3.update_yaxes(
     showline=True,
     zeroline=False,
     showgrid=False,
-    overlaying="y",
-    secondary_y=True,
     autorange=False,
+    row=3,
+    col=1,
 )
 fig3.update_layout(
     font={"size": 16}, margin=dict(l=20, r=0, t=30, b=0), plot_bgcolor="rgba(0,0,0,0)"
@@ -216,6 +254,8 @@ def on_message(mqttc, obj, msg):
     """Act on an MQTT message."""
     payload = pickle.loads(msg.payload)
 
+    print(payload)
+
     if msg.topic == "data/raw/mppt_measurement":
         data = graph3_latest[0]["data"]
         if payload["clear"] is True:
@@ -234,6 +274,7 @@ def on_message(mqttc, obj, msg):
             # measurement start offset needs to be substracted.
             t_scaled = data[:, -1] - data[0, -1]
             data[:, 0] = t_scaled
+            print(data)
         graph3_latest.append({"msg": payload, "data": data})
     elif msg.topic == "measurement/run":
         read_config(payload)
