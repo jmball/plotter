@@ -4,6 +4,7 @@
 import collections
 import logging
 import pickle
+import queue
 import threading
 import uuid
 
@@ -68,6 +69,7 @@ def format_figure_3(data, fig, title="-"):
 graph3_latest = collections.deque(maxlen=1)
 paused = collections.deque(maxlen=1)
 paused.append(False)
+processed_q = queue.Queue()
 
 # initialise plot info/data queues
 graph3_latest.append({"msg": {"clear": True, "idn": "-"}, "data": np.empty((0, 5))})
@@ -206,33 +208,11 @@ def process_ivt(payload, kind):
 
     # add processed data back into payload to be sent on
     payload["data"] = data
-    payload = pickle.dumps(payload)
-    _publish(f"data/processed/{kind}", payload)
+    # payload = pickle.dumps(payload)
+    # _publish(f"data/processed/{kind}", payload)
+    processed_q.put([f"data/processed/{kind}", payload])
 
     return data
-
-
-def _publish(topic, payload):
-    t = threading.Thread(target=_publish_worker, args=(topic, payload,))
-    t.start()
-
-
-def _publish_worker(topic, payload):
-    """Publish something over MQTT with a fresh client.
-
-    Parameters
-    ----------
-    topic : str
-        Topic to publish to.
-    payload :
-        Serialised payload to publish.
-    """
-    mqttc = mqtt.Client()
-    mqttc.connect(args.mqtthost)
-    mqttc.loop_start()
-    mqttc.publish(topic, payload, 2).wait_for_publish()
-    mqttc.loop_stop()
-    mqttc.disconnect()
 
 
 def read_config(payload):
@@ -274,13 +254,26 @@ def on_message(mqttc, obj, msg):
             # measurement start offset needs to be substracted.
             t_scaled = data[:, -1] - data[0, -1]
             data[:, 0] = t_scaled
-            print(data)
         graph3_latest.append({"msg": payload, "data": data})
     elif msg.topic == "measurement/run":
         read_config(payload)
     elif msg.topic == "plotter/pause":
         print(f"pause: {payload}")
         paused.append(payload)
+
+
+def publish_worker(mqttc):
+    """Publish payloads added to queue.
+
+    Parameters
+    ----------
+    mqttc : mqtt.Client
+        MQTT client.
+    """
+    while True:
+        topic, payload = processed_q.get()
+        mqttc.publish(topic, pickle.dumps(payload), 2).wait_for_publish()
+        processed_q.task_done()
 
 
 if __name__ == "__main__":
@@ -319,6 +312,9 @@ if __name__ == "__main__":
     mqtt_analyser.subscribe("data/raw/mppt_measurement", qos=2)
     mqtt_analyser.subscribe("plotter/pause", qos=2)
     mqtt_analyser.subscribe("measurement/run", qos=2)
+
+    # start the sender (publishes messages from worker and manager)
+    threading.Thread(target=publish_worker, args=(mqtt_analyser,), daemon=True).start()
 
     print(f"{client_id} connected!")
 
