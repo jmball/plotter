@@ -198,7 +198,7 @@ def on_message(mqttc, obj, msg):
 
         # interpolate i as a function of v to find voc (v at i=0)
         f_v = sp.interpolate.interp1d(
-            pdata[:, 1], pdata[:, 0], kind="linear", bounds_error=False, fill_value=0
+            pdata[:, 1], pdata[:, 0], kind="linear", bounds_error=False, fill_value=0,
         )
         voc = f_v(0)
 
