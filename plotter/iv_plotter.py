@@ -74,7 +74,9 @@ paused.append(False)
 processed_q = queue.Queue()
 
 # initialise plot info/data queues
-graph2_latest.append({"msg": {"clear": True, "idn": "-"}, "data": np.empty((0, 4))})
+graph2_latest.append(
+    {"msg": {"pixel": {"label": "-", "pixel": "-"}}, "data": np.empty((0, 4))}
+)
 
 # initial figure properties
 fig2 = plotly.subplots.make_subplots(subplot_titles=["-"])
@@ -129,8 +131,12 @@ def update_graph_live(n, g2):
     if paused[0] is False:
         g2_latest = graph2_latest[0]
 
+        label = g2_latest["msg"]["pixel"]["label"]
+        pixel = g2_latest["msg"]["pixel"]["pixel"]
+        idn = f"{label}_device{pixel}"
+
         # update figures
-        g2 = format_figure_2(g2_latest["data"], g2, g2_latest["msg"]["idn"])
+        g2 = format_figure_2(g2_latest["data"], g2, idn)
 
     return [g2]
 
@@ -180,19 +186,19 @@ def on_message(mqttc, obj, msg):
     """Act on an MQTT message."""
     payload = pickle.loads(msg.payload)
 
-    if msg.topic == "data/raw/iv_measurement":
+    if msg.topic == "plotter/iv_measurement/clear":
+        old_msg = graph2_latest[0]["msg"]
+        data = np.empty((0, 4))
+        graph2_latest.append({"msg": old_msg, "data": data})
+    elif msg.topic == "data/raw/iv_measurement":
         data = graph2_latest[0]["data"]
-        if payload["clear"] is True:
-            print("iv clear")
-            data = np.empty((0, 4))
+        pdata = process_iv(payload, "iv_measurement")
+        if len(data) == 0:
+            data0 = np.array(pdata[:, [0, 4]])
+            data1 = np.zeros(data0.shape)
+            data = np.append(data0, data1, axis=1)
         else:
-            pdata = process_iv(payload, "iv_measurement")
-            if len(data) == 0:
-                data0 = np.array(pdata[:, [0, 4]])
-                data1 = np.zeros(data0.shape)
-                data = np.append(data0, data1, axis=1)
-            else:
-                data[:, 2:] = np.array(pdata[:, [0, 4]])
+            data[:, 2:] = np.array(pdata[:, [0, 4]])
         graph2_latest.append({"msg": payload, "data": data})
     elif msg.topic == "measurement/run":
         read_config(payload)
@@ -249,7 +255,7 @@ if __name__ == "__main__":
 
     # subscribe to data and request topics
     mqtt_analyser.subscribe("data/raw/iv_measurement", qos=2)
-    mqtt_analyser.subscribe("plotter/pause", qos=2)
+    mqtt_analyser.subscribe("plotter/#", qos=2)
     mqtt_analyser.subscribe("measurement/run", qos=2)
 
     # start the sender (publishes messages from worker and manager)

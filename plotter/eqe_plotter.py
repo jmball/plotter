@@ -70,7 +70,9 @@ paused.append(False)
 processed_q = queue.Queue()
 
 # initialise plot info/data queues
-graph5_latest.append({"msg": {"clear": True, "idn": "-"}, "data": np.empty((0, 2))})
+graph5_latest.append(
+    {"msg": {"pixel": {"label": "-", "pixel": "-"}}, "data": np.empty((0, 2))}
+)
 
 # initial figure properties
 fig5 = plotly.subplots.make_subplots(
@@ -126,8 +128,12 @@ def update_graph_live(n, g5):
     if paused[0] is False:
         g5_latest = graph5_latest[0]
 
+        label = g5_latest["msg"]["pixel"]["label"]
+        pixel = g5_latest["msg"]["pixel"]["pixel"]
+        idn = f"{label}_device{pixel}"
+
         # update figures
-        g5 = format_figure_5(g5_latest["data"], g5, g5_latest["msg"]["idn"])
+        g5 = format_figure_5(g5_latest["data"], g5, idn)
 
     return [g5]
 
@@ -213,17 +219,16 @@ def on_message(mqttc, obj, msg):
     """Act on an MQTT message."""
     payload = pickle.loads(msg.payload)
 
-    if msg.topic == "data/raw/eqe_measurement":
-        data = graph5_latest[0]["data"]
-        if payload["clear"] is True:
-            print("eqe clear")
-            data = np.empty((0, 2))
-        else:
-            pdata = process_eqe(payload, "eqe_measurement")
-            if pdata is not None:
-                wl = pdata[1]
-                eqe = pdata[-1]
-                data = np.append(data, np.array([[wl, eqe]]), axis=0)
+    if msg.topic == "plotter/eqe_measurement/clear":
+        old_msg = graph5_latest[0]["msg"]
+        data = np.empty((0, 2))
+        graph5_latest.append({"msg": old_msg, "data": data})
+    elif msg.topic == "data/raw/eqe_measurement":
+        old_data = graph5_latest[0]["data"]
+        pdata = process_eqe(payload, "eqe_measurement")
+        wl = pdata[1]
+        eqe = pdata[-1]
+        data = np.append(old_data, np.array([[wl, eqe]]), axis=0)
         graph5_latest.append({"msg": payload, "data": data})
     elif msg.topic == "calibration/eqe":
         read_eqe_cal(payload)
@@ -283,7 +288,7 @@ if __name__ == "__main__":
     # subscribe to data and request topics
     mqtt_analyser.subscribe("calibration/eqe", qos=2)
     mqtt_analyser.subscribe("data/raw/eqe_measurement", qos=2)
-    mqtt_analyser.subscribe("plotter/pause", qos=2)
+    mqtt_analyser.subscribe("plotter/#", qos=2)
     mqtt_analyser.subscribe("measurement/run", qos=2)
 
     # start the sender (publishes messages from worker and manager)

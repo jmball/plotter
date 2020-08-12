@@ -82,7 +82,9 @@ paused.append(False)
 processed_q = queue.Queue()
 
 # initialise plot info/data queues
-graph4_latest.append({"msg": {"clear": True, "idn": "-"}, "data": np.empty((0, 3))})
+graph4_latest.append(
+    {"msg": {"pixel": {"label": "-", "pixel": "-"}}, "data": np.empty((0, 3))}
+)
 
 # initial figure properties
 fig4 = plotly.subplots.make_subplots(subplot_titles=["-"])
@@ -136,8 +138,12 @@ def update_graph_live(n, g4):
     if paused[0] is False:
         g4_latest = graph4_latest[0]
 
+        label = g4_latest["msg"]["pixel"]["label"]
+        pixel = g4_latest["msg"]["pixel"]["pixel"]
+        idn = f"{label}_device{pixel}"
+
         # update figures
-        g4 = format_figure_4(g4_latest["data"], g4, g4_latest["msg"]["idn"])
+        g4 = format_figure_4(g4_latest["data"], g4, idn)
 
     return [g4]
 
@@ -187,22 +193,22 @@ def on_message(mqttc, obj, msg):
     """Act on an MQTT message."""
     payload = pickle.loads(msg.payload)
 
-    if msg.topic == "data/raw/it_measurement":
-        data = graph4_latest[0]["data"]
-        if payload["clear"] is True:
-            print("it clear")
-            data = np.empty((0, 3))
-        else:
-            pdata = process_ivt(payload, "it_measurement")
-            t = pdata[2]
-            j = pdata[4]
+    if msg.topic == "plotter/it_measurement/clear":
+        old_msg = graph4_latest[0]["msg"]
+        data = np.empty((0, 3))
+        graph4_latest.append({"msg": old_msg, "data": data})
+    elif msg.topic == "data/raw/it_measurement":
+        old_data = graph4_latest[0]["data"]
+        pdata = process_ivt(payload, "it_measurement")
+        t = pdata[2]
+        j = pdata[4]
 
-            data = np.append(data, np.array([[0, j, t]]), axis=0)
+        data = np.append(old_data, np.array([[0, j, t]]), axis=0)
 
-            # time returned by smu is time in s since instrument turned on so
-            # measurement start offset needs to be substracted.
-            t_scaled = data[:, -1] - data[0, -1]
-            data[:, 0] = t_scaled
+        # time returned by smu is time in s since instrument turned on so
+        # measurement start offset needs to be substracted.
+        t_scaled = data[:, -1] - data[0, -1]
+        data[:, 0] = t_scaled
         graph4_latest.append({"msg": payload, "data": data})
     elif msg.topic == "measurement/run":
         read_config(payload)
@@ -259,7 +265,7 @@ if __name__ == "__main__":
 
     # subscribe to data and request topics
     mqtt_analyser.subscribe("data/raw/it_measurement", qos=2)
-    mqtt_analyser.subscribe("plotter/pause", qos=2)
+    mqtt_analyser.subscribe("plotter/#", qos=2)
     mqtt_analyser.subscribe("measurement/run", qos=2)
 
     # start the sender (publishes messages from worker and manager)
