@@ -90,17 +90,21 @@ fig2.update_xaxes(
     mirror="ticks",
     linecolor="#444",
     showline=True,
-    zeroline=False,
+    zeroline=True,
+    zerolinecolor="#444",
+    zerolinewidth=1,
     showgrid=False,
     autorange=False,
 )
 fig2.update_yaxes(
-    title="J<sub>extracted</sub> (mA/cm^2)",
+    title="J (mA/cm^2)",
     ticks="inside",
     mirror="ticks",
     linecolor="#444",
     showline=True,
-    zeroline=False,
+    zeroline=True,
+    zerolinecolor="#444",
+    zerolinewidth=1,
     showgrid=False,
     autorange=False,
 )
@@ -205,8 +209,8 @@ def on_message(mqttc, obj, msg):
         # map data into upper right quadrant
         if voc < 0:
             pdata[:, 0] = pdata[:, 0] * -1
-        else:
-            pdata[:, 4] = pdata[:, 4] * -1
+        # else:
+        #     pdata[:, 4] = pdata[:, 4] * -1
 
         if len(data) == 0:
             data0 = np.array(pdata[:, [0, 4]])
