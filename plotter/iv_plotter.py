@@ -85,7 +85,7 @@ fig2 = plotly.subplots.make_subplots(subplot_titles=["-"])
 fig2.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="scan0"))
 fig2.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="scan1"))
 fig2.update_xaxes(
-    title="bias (V)",
+    title="applied forward bias (V)",
     ticks="inside",
     mirror="ticks",
     linecolor="#444",
@@ -95,7 +95,7 @@ fig2.update_xaxes(
     autorange=False,
 )
 fig2.update_yaxes(
-    title="J (mA/cm^2)",
+    title="J<sub>extracted</sub> (mA/cm^2)",
     ticks="inside",
     mirror="ticks",
     linecolor="#444",
