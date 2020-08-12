@@ -199,19 +199,6 @@ def on_message(mqttc, obj, msg):
     elif msg.topic == "data/raw/iv_measurement":
         data = graph2_latest[0]["data"]
         pdata = process_iv(payload, "iv_measurement")
-
-        # interpolate i as a function of v to find voc (v at i=0)
-        f_v = sp.interpolate.interp1d(
-            pdata[:, 1], pdata[:, 0], kind="linear", bounds_error=False, fill_value=0,
-        )
-        voc = f_v(0)
-
-        # map data into upper right quadrant
-        if voc < 0:
-            pdata[:, 0] = pdata[:, 0] * -1
-        # else:
-        #     pdata[:, 4] = pdata[:, 4] * -1
-
         if len(data) == 0:
             data0 = np.array(pdata[:, [0, 4]])
             data1 = np.zeros(data0.shape)
