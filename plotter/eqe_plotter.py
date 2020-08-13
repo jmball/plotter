@@ -220,6 +220,7 @@ def on_message(mqttc, obj, msg):
     payload = pickle.loads(msg.payload)
 
     if msg.topic == "plotter/eqe_measurement/clear":
+        print("EQE plotter cleared")
         old_msg = graph5_latest[0]["msg"]
         data = np.empty((0, 2))
         graph5_latest.append({"msg": old_msg, "data": data})

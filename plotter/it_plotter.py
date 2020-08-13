@@ -194,6 +194,7 @@ def on_message(mqttc, obj, msg):
     payload = pickle.loads(msg.payload)
 
     if msg.topic == "plotter/it_measurement/clear":
+        print("I-t plotter cleared")
         old_msg = graph4_latest[0]["msg"]
         data = np.empty((0, 3))
         graph4_latest.append({"msg": old_msg, "data": data})
