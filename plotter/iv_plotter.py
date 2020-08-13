@@ -85,7 +85,7 @@ fig2 = plotly.subplots.make_subplots(subplot_titles=["-"])
 fig2.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="scan0"))
 fig2.add_trace(go.Scatter(x=[], y=[], mode="lines+markers", name="scan1"))
 fig2.update_xaxes(
-    title="applied forward bias (V)",
+    title="applied bias (V)",
     ticks="inside",
     mirror="ticks",
     linecolor="#444",
