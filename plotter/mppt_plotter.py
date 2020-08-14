@@ -35,11 +35,6 @@ def format_figure_3(data, fig, title="-"):
     fig : plotly.graph_objs.Figure
         Updated plotly figure.
     """
-    if invert_voltage[0] is True:
-        data[:, 3] = -1 * data[:, 3]
-
-    print(data[:, 3])
-
     if len(data) == 0:
         # if request to clear has been issued, return cleared figure
         return fig
@@ -270,6 +265,9 @@ def msg_handler():
             v = pdata[0]
             j = abs(pdata[4])
             p = abs(pdata[5])
+
+            if invert_voltage[0] is True:
+                v = -1 * v
 
             data = np.append(old_data, np.array([[0, j, p, v, t]]), axis=0,)
 

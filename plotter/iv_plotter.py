@@ -221,6 +221,13 @@ def msg_handler():
         elif msg.topic == "data/raw/iv_measurement":
             data = graph2_latest[0]["data"]
             pdata = process_iv(payload, "iv_measurement")
+
+            if invert_current[0] is True:
+                pdata[:, 4] = -1 * pdata[:, 4]
+
+            if invert_voltage[0] is True:
+                pdata[:, 0] = -1 * pdata[:, 0]
+
             if len(data) == 0:
                 data0 = np.array(pdata[:, [0, 4]])
                 data1 = np.zeros(data0.shape)

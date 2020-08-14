@@ -200,6 +200,9 @@ def msg_handler():
             t = pdata[2]
             v = pdata[0]
 
+            if invert_voltage[0] is True:
+                v = -1 * v
+
             data = np.append(old_data, np.array([[0, v, t]]), axis=0)
 
             # time returned by smu is time in s since instrument turned on so

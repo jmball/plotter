@@ -35,9 +35,6 @@ def format_figure_1(data, fig, title="-"):
     fig : dict
         Dictionary representation of Plotly figure.
     """
-    if invert_current[0] is True:
-        data[:, 1] = -1 * data[:, 1]
-
     if len(data) == 0:
         # if request to clear has been issued, return cleared figure
         return fig
@@ -219,6 +216,9 @@ def msg_handler():
             pdata = process_ivt(payload, "it_measurement")
             t = pdata[2]
             j = pdata[4]
+
+            if invert_current[0] is True:
+                j = -1 * j
 
             data = np.append(old_data, np.array([[0, j, t]]), axis=0)
 
