@@ -35,13 +35,18 @@ def format_figure_1(data, fig, title="-"):
     fig : dict
         Dictionary representation of Plotly figure.
     """
+    if invert_current[0] is True:
+        i_factor = -1
+    else:
+        i_factor = 1
+
     if len(data) == 0:
         # if request to clear has been issued, return cleared figure
         return fig
     else:
         # add data to fig
         fig["data"][0]["x"] = data[:, 0]
-        fig["data"][0]["y"] = data[:, 1]
+        fig["data"][0]["y"] = i_factor * data[:, 1]
 
         # update ranges
         fig["layout"]["xaxis"]["range"] = [min(data[:, 0]), max(data[:, 0])]
@@ -76,6 +81,8 @@ def format_figure_4(data, fig, title="-"):
 # create thread-safe containers for storing latest data and plot info
 graph4_latest = collections.deque(maxlen=1)
 paused = collections.deque(maxlen=1)
+invert_current = collections.deque(maxlen=1)
+invert_current.append(False)
 paused.append(False)
 
 # queue from which processed data is published with mqtt
@@ -227,6 +234,8 @@ def msg_handler():
         elif msg.topic == "plotter/pause":
             print(f"pause: {payload}")
             paused.append(payload)
+        elif msg.topic == "plotter/invert_current":
+            invert_current.append(current)
 
         msg_queue.task_done()
 

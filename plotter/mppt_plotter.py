@@ -35,13 +35,18 @@ def format_figure_3(data, fig, title="-"):
     fig : plotly.graph_objs.Figure
         Updated plotly figure.
     """
+    if invert_voltage[0] is True:
+        v_factor = -1
+    else:
+        v_factor = 1
+
     if len(data) == 0:
         # if request to clear has been issued, return cleared figure
         return fig
     else:
         # add data to fig
         fig["data"][0]["x"] = data[:, 0]
-        fig["data"][0]["y"] = data[:, 1]
+        fig["data"][0]["y"] = v_factor * data[:, 1]
         fig["data"][1]["x"] = data[:, 0]
         fig["data"][1]["y"] = data[:, 2]
         fig["data"][2]["x"] = data[:, 0]
@@ -68,6 +73,8 @@ def format_figure_3(data, fig, title="-"):
 # create thread-safe containers for storing latest data and plot info
 graph3_latest = collections.deque(maxlen=1)
 paused = collections.deque(maxlen=1)
+invert_voltage = collections.deque(maxlen=1)
+invert_voltage.append(False)
 paused.append(False)
 
 # queue from which processed data is published with mqtt
@@ -276,6 +283,8 @@ def msg_handler():
         elif msg.topic == "plotter/pause":
             print(f"pause: {payload}")
             paused.append(payload)
+        elif msg.topic == "plotter/invert_voltage":
+            invert_voltage.append(payload)
 
         msg_queue.task_done()
 

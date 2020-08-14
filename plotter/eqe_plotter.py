@@ -66,6 +66,7 @@ graph5_latest = collections.deque(maxlen=1)
 paused = collections.deque(maxlen=1)
 paused.append(False)
 
+
 # queue from which processed data is published with mqtt
 processed_q = queue.Queue()
 
