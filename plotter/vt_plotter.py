@@ -213,6 +213,7 @@ def msg_handler():
             print(f"pause: {payload}")
             paused.append(payload)
         elif msg.topic == "plotter/invert_voltage":
+            print(f"invert voltage: {payload}")
             invert_voltage.append(payload)
 
         msg_queue.task_done()
