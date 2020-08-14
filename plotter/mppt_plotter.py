@@ -36,9 +36,7 @@ def format_figure_3(data, fig, title="-"):
         Updated plotly figure.
     """
     if invert_voltage[0] is True:
-        v_factor = -1
-    else:
-        v_factor = 1
+        data[:, 3] = -1 * data[:, 3]
 
     if len(data) == 0:
         # if request to clear has been issued, return cleared figure
@@ -46,7 +44,7 @@ def format_figure_3(data, fig, title="-"):
     else:
         # add data to fig
         fig["data"][0]["x"] = data[:, 0]
-        fig["data"][0]["y"] = v_factor * data[:, 1]
+        fig["data"][0]["y"] = data[:, 1]
         fig["data"][1]["x"] = data[:, 0]
         fig["data"][1]["y"] = data[:, 2]
         fig["data"][2]["x"] = data[:, 0]

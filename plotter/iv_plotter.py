@@ -38,22 +38,18 @@ def format_figure_2(data, fig, title="-"):
         Updated plotly figure.
     """
     if invert_current[0] is True:
-        i_factor = -1
-    else:
-        i_factor = 1
+        data[:, 1] = -1 * data[:, 1]
 
     if invert_voltage[0] is True:
-        v_factor = -1
-    else:
-        v_factor = 1
+        data[:, 0] = -1 * data[:, 0]
 
     if len(data) == 0:
         # if request to clear has been issued, return cleared figure
         return fig
     else:
         # add data to fig
-        fig["data"][0]["x"] = v_factor * data[:, 0]
-        fig["data"][0]["y"] = i_factor * data[:, 1]
+        fig["data"][0]["x"] = data[:, 0]
+        fig["data"][0]["y"] = data[:, 1]
 
         if np.all(data[:, 2] != np.zeros(len(data[:, 2]))):
             fig["data"][1]["x"] = v_factor * data[:, 2]
