@@ -35,9 +35,6 @@ def format_figure_1(data, fig, title="-"):
     fig : dict
         Dictionary representation of Plotly figure.
     """
-    if invert_voltage[0] is True:
-        data[:, 1] = -1 * data[:, 1]
-
     if len(data) == 0:
         # if request to clear has been issued, return cleared figure
         return fig

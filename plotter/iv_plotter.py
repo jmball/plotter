@@ -37,12 +37,6 @@ def format_figure_2(data, fig, title="-"):
     fig : plotly.graph_objs.Figure
         Updated plotly figure.
     """
-    if invert_current[0] is True:
-        data[:, 1] = -1 * data[:, 1]
-
-    if invert_voltage[0] is True:
-        data[:, 0] = -1 * data[:, 0]
-
     if len(data) == 0:
         # if request to clear has been issued, return cleared figure
         return fig
