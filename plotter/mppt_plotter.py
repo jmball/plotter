@@ -38,6 +38,8 @@ def format_figure_3(data, fig, title="-"):
     if invert_voltage[0] is True:
         data[:, 3] = -1 * data[:, 3]
 
+    print(data[:, 3])
+
     if len(data) == 0:
         # if request to clear has been issued, return cleared figure
         return fig
