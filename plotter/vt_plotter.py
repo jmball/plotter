@@ -169,33 +169,46 @@ def read_config(payload):
     config = payload["config"]
 
 
+msg_queue = queue.Queue()
+
+
 def on_message(mqttc, obj, msg):
     """Act on an MQTT message."""
-    payload = pickle.loads(msg.payload)
+    msg_queue.put_nowait(msg)
 
-    if msg.topic == "plotter/iv_measurement/clear":
-        print("V-t plotter cleared")
-        old_msg = graph1_latest[0]["msg"]
-        data = np.empty((0, 3))
-        graph1_latest.append({"msg": old_msg, "data": data})
-    elif msg.topic == "data/raw/vt_measurement":
-        old_data = graph1_latest[0]["data"]
-        pdata = process_ivt(payload, "vt_measurement")
-        t = pdata[2]
-        v = pdata[0]
 
-        data = np.append(old_data, np.array([[0, v, t]]), axis=0)
+def msg_handler():
+    """Handle incoming MQTT messages."""
+    while True:
+        msg = msg_queue.get()
 
-        # time returned by smu is time in s since instrument turned on so
-        # measurement start offset needs to be substracted.
-        t_scaled = data[:, -1] - data[0, -1]
-        data[:, 0] = t_scaled
-        graph1_latest.append({"msg": payload, "data": data})
-    elif msg.topic == "measurement/run":
-        read_config(payload)
-    elif msg.topic == "plotter/pause":
-        print(f"pause: {payload}")
-        paused.append(payload)
+        payload = pickle.loads(msg.payload)
+
+        if msg.topic == "plotter/iv_measurement/clear":
+            print("V-t plotter cleared")
+            old_msg = graph1_latest[0]["msg"]
+            data = np.empty((0, 3))
+            graph1_latest.append({"msg": old_msg, "data": data})
+        elif msg.topic == "data/raw/vt_measurement":
+            old_data = graph1_latest[0]["data"]
+            pdata = process_ivt(payload, "vt_measurement")
+            t = pdata[2]
+            v = pdata[0]
+
+            data = np.append(old_data, np.array([[0, v, t]]), axis=0)
+
+            # time returned by smu is time in s since instrument turned on so
+            # measurement start offset needs to be substracted.
+            t_scaled = data[:, -1] - data[0, -1]
+            data[:, 0] = t_scaled
+            graph1_latest.append({"msg": payload, "data": data})
+        elif msg.topic == "measurement/run":
+            read_config(payload)
+        elif msg.topic == "plotter/pause":
+            print(f"pause: {payload}")
+            paused.append(payload)
+
+        msg_queue.task_done()
 
 
 def publish_worker(mqttc):
@@ -237,6 +250,9 @@ if __name__ == "__main__":
 
     # create mqtt client id
     client_id = f"plotter-{uuid.uuid4().hex}"
+
+    # start the msg queue thread
+    threading.Thread(target=msg_handler, daemon=True).start()
 
     mqtt_analyser = mqtt.Client(client_id)
     mqtt_analyser.on_message = on_message
