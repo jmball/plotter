@@ -233,7 +233,7 @@ def msg_handler():
             print(f"pause: {payload}")
             paused.append(payload)
         elif msg.topic == "plotter/invert_current":
-            invert_current.append(current)
+            invert_current.append(payload)
 
         msg_queue.task_done()
 
