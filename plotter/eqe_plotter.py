@@ -91,7 +91,7 @@ fig5.update_xaxes(
     autorange=False,
 )
 fig5.update_yaxes(
-    title="EQE (%)",
+    title="EQE (calibration units)",
     ticks="inside",
     mirror=True,
     linecolor="#444",
