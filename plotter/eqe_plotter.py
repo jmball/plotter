@@ -154,13 +154,15 @@ def process_eqe(payload, kind):
         meas = payload["data"]
         meas_wl = meas[1]
         # ratio signal R/Aux In 1 to correct for intensity drift
-        meas_sig = meas[8] / meas[4]
+        # meas_sig = meas[8] / meas[4]
+        meas_sig = meas[8]
 
         # get interpolation object
         cal = np.array(eqe_calibration)
         cal_wls = cal[:, 1]
         # ratio signal R/Aux In 1 to correct for intensity drift
-        cal_sig = cal[:, 8] / cal[:, 4]
+        # cal_sig = cal[:, 8] / cal[:, 4]
+        cal_sig = cal[:, 8]
         f_cal = sp.interpolate.interp1d(
             cal_wls, cal_sig, kind="linear", bounds_error=False, fill_value=0
         )
