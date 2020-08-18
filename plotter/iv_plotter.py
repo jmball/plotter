@@ -46,8 +46,8 @@ def format_figure_2(data, fig, title="-"):
         fig["data"][0]["y"] = data[:, 1]
 
         if np.all(data[:, 2] != np.zeros(len(data[:, 2]))):
-            fig["data"][1]["x"] = v_factor * data[:, 2]
-            fig["data"][1]["y"] = i_factor * data[:, 3]
+            fig["data"][1]["x"] = data[:, 2]
+            fig["data"][1]["y"] = data[:, 3]
 
         # update ranges
         xrange = [
