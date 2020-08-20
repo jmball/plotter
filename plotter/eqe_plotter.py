@@ -49,7 +49,7 @@ def format_figure_5(data, fig, title="-"):
 
         # update ranges
         xrange = [min(data[:, 0]), max(data[:, 0])]
-        yrange = [min(data[:, 1]), max(data[:, 1])]
+        yrange = [0, max(data[:, 1])]
         # yrange2 = [min(data[:, 2]), max(data[:, 2])]
         fig["layout"]["xaxis"]["range"] = xrange
         fig["layout"]["yaxis"]["range"] = yrange
