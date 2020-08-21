@@ -212,9 +212,11 @@ def msg_handler():
             old_msg = graph2_latest[0]["msg"]
             data = np.empty((0, 4))
             graph2_latest.append({"msg": old_msg, "data": data})
-        elif msg.topic == "data/raw/iv_measurement":
+        elif msg.topic.startswith("data/raw/iv_measurement"):
             data = graph2_latest[0]["data"]
-            pdata = process_iv(payload, "iv_measurement")
+            kind_ix = msg.topic.index("iv_measurement")
+            kind = msg.topic[kind_ix:]
+            pdata = process_iv(payload, kind)
 
             if invert_current[0] is True:
                 pdata[:, 4] = -1 * pdata[:, 4]
@@ -294,7 +296,7 @@ if __name__ == "__main__":
     mqtt_analyser.connect(args.mqtthost)
 
     # subscribe to data and request topics
-    mqtt_analyser.subscribe("data/raw/iv_measurement", qos=2)
+    mqtt_analyser.subscribe("data/raw/iv_measurement/#", qos=2)
     mqtt_analyser.subscribe("plotter/#", qos=2)
     mqtt_analyser.subscribe("measurement/run", qos=2)
 
