@@ -186,7 +186,7 @@ def msg_handler():
 
         payload = pickle.loads(msg.payload)
 
-        if msg.topic == "plotter/iv_measurement/clear":
+        if msg.topic == "plotter/vt_measurement/clear":
             print("V-t plotter cleared")
             old_msg = graph1_latest[0]["msg"]
             data = np.empty((0, 3))
