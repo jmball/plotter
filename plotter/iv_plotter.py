@@ -38,9 +38,14 @@ def format_figure_2(data, fig, title="-"):
         Updated plotly figure.
     """
     if len(data) == 0:
+        fig["data"][0]["x"] = []
+        fig["data"][0]["y"] = []
+        fig["data"][1]["x"] = []
+        fig["data"][1]["y"] = []
         # if request to clear has been issued, return cleared figure
         return fig
     else:
+        print("updating data")
         # add data to fig
         fig["data"][0]["x"] = data[:, 0]
         fig["data"][0]["y"] = data[:, 1]
@@ -219,9 +224,11 @@ def msg_handler():
             pdata = process_iv(payload, kind)
 
             if invert_current[0] is True:
+                print("inverted current")
                 pdata[:, 4] = -1 * pdata[:, 4]
 
             if invert_voltage[0] is True:
+                print("inverted voltage")
                 pdata[:, 0] = -1 * pdata[:, 0]
 
             if len(data) == 0:
