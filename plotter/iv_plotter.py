@@ -218,6 +218,7 @@ def msg_handler():
             data = np.empty((0, 4))
             graph2_latest.append({"msg": old_msg, "data": data})
         elif msg.topic.startswith("data/raw/iv_measurement"):
+            print(t := time.time())
             data = graph2_latest[0]["data"]
             kind_ix = msg.topic.index("iv_measurement")
             kind = msg.topic[kind_ix:]
@@ -236,6 +237,7 @@ def msg_handler():
             else:
                 data[:, 2:] = np.array(pdata[:, [0, 4]])
             graph2_latest.append({"msg": payload, "data": data})
+            print(f"process time: {time.time() - t}")
         elif msg.topic == "measurement/run":
             read_config(payload)
         elif msg.topic == "plotter/pause":
