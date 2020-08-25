@@ -6,6 +6,7 @@ import logging
 import pickle
 import queue
 import threading
+import time
 import uuid
 
 import dash
@@ -45,7 +46,6 @@ def format_figure_2(data, fig, title="-"):
         # if request to clear has been issued, return cleared figure
         return fig
     else:
-        print("updating data")
         # add data to fig
         fig["data"][0]["x"] = data[:, 0]
         fig["data"][0]["y"] = data[:, 1]
@@ -130,7 +130,7 @@ app.layout = html.Div(
     html.Div(
         [
             dcc.Graph(id="g2", figure=fig2, style={"width": "95vw", "height": "95vh"}),
-            dcc.Interval(id="interval-component", interval=1 * 250, n_intervals=0,),
+            dcc.Interval(id="interval-component", interval=250, n_intervals=0,),
         ],
     ),
 )
@@ -143,6 +143,7 @@ app.layout = html.Div(
 )
 def update_graph_live(n, g2):
     """Update graph."""
+    t = time.time()
     if paused[0] is False:
         g2_latest = graph2_latest[0]
 
@@ -150,8 +151,14 @@ def update_graph_live(n, g2):
         pixel = g2_latest["msg"]["pixel"]["pixel"]
         idn = f"{label}_device{pixel}"
 
+        if len(g2_latest["data"]) == 0:
+            print("cleared plot")
+        else:
+            print("updating data")
+
         # update figures
         g2 = format_figure_2(g2_latest["data"], g2, idn)
+        print(f"update time: {time.time() - t}")
 
     return [g2]
 
@@ -224,11 +231,9 @@ def msg_handler():
             pdata = process_iv(payload, kind)
 
             if invert_current[0] is True:
-                print("inverted current")
                 pdata[:, 4] = -1 * pdata[:, 4]
 
             if invert_voltage[0] is True:
-                print("inverted voltage")
                 pdata[:, 0] = -1 * pdata[:, 0]
 
             if len(data) == 0:
