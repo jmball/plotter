@@ -39,11 +39,11 @@ def format_figure_2(data, fig, title="-"):
         Updated plotly figure.
     """
     if len(data) == 0:
+        # if request to clear has been issued, return cleared figure
         fig["data"][0]["x"] = []
         fig["data"][0]["y"] = []
         fig["data"][1]["x"] = []
         fig["data"][1]["y"] = []
-        # if request to clear has been issued, return cleared figure
         return fig
     else:
         # add data to fig
@@ -130,7 +130,7 @@ app.layout = html.Div(
     html.Div(
         [
             dcc.Graph(id="g2", figure=fig2, style={"width": "95vw", "height": "95vh"}),
-            dcc.Interval(id="interval-component", interval=250, n_intervals=0,),
+            dcc.Interval(id="interval-component", interval=500, n_intervals=0,),
         ],
     ),
 )
@@ -143,8 +143,6 @@ app.layout = html.Div(
 )
 def update_graph_live(n, g2):
     """Update graph."""
-    t = time.time()
-    print(t)
     if paused[0] is False:
         g2_latest = graph2_latest[0]
 
@@ -152,15 +150,8 @@ def update_graph_live(n, g2):
         pixel = g2_latest["msg"]["pixel"]["pixel"]
         idn = f"{label}_device{pixel}"
 
-        if len(g2_latest["data"]) == 0:
-            print("cleared plot")
-        else:
-            print("updating data")
-
         # update figures
         g2 = format_figure_2(g2_latest["data"], g2, idn)
-
-        print(f"update time: {time.time() - t}")
 
     return [g2]
 

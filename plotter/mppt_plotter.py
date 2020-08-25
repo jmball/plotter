@@ -37,6 +37,12 @@ def format_figure_3(data, fig, title="-"):
     """
     if len(data) == 0:
         # if request to clear has been issued, return cleared figure
+        fig["data"][0]["x"] = []
+        fig["data"][0]["y"] = []
+        fig["data"][1]["x"] = []
+        fig["data"][1]["y"] = []
+        fig["data"][2]["x"] = []
+        fig["data"][2]["y"] = []
         return fig
     else:
         # add data to fig
@@ -171,7 +177,7 @@ app.layout = html.Div(
     html.Div(
         [
             dcc.Graph(id="g3", figure=fig3, style={"width": "95vw", "height": "95vh"}),
-            dcc.Interval(id="interval-component", interval=1 * 250, n_intervals=0,),
+            dcc.Interval(id="interval-component", interval=500, n_intervals=0,),
         ],
     ),
 )
