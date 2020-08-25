@@ -144,6 +144,7 @@ app.layout = html.Div(
 def update_graph_live(n, g2):
     """Update graph."""
     t = time.time()
+    print(t)
     if paused[0] is False:
         g2_latest = graph2_latest[0]
 
@@ -158,6 +159,7 @@ def update_graph_live(n, g2):
 
         # update figures
         g2 = format_figure_2(g2_latest["data"], g2, idn)
+
         print(f"update time: {time.time() - t}")
 
     return [g2]
