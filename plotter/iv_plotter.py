@@ -210,43 +210,46 @@ def msg_handler():
     while True:
         msg = msg_queue.get()
 
-        payload = pickle.loads(msg.payload)
+        try:
+            payload = pickle.loads(msg.payload)
 
-        if msg.topic == "plotter/iv_measurement/clear":
-            print("I-V plotter cleared")
-            old_msg = graph2_latest[0]["msg"]
-            data = np.empty((0, 4))
-            graph2_latest.append({"msg": old_msg, "data": data})
-        elif msg.topic.startswith("data/raw/iv_measurement"):
-            data = graph2_latest[0]["data"]
-            kind_ix = msg.topic.index("iv_measurement")
-            kind = msg.topic[kind_ix:]
-            pdata = process_iv(payload, kind)
+            if msg.topic == "plotter/iv_measurement/clear":
+                print("I-V plotter cleared")
+                old_msg = graph2_latest[0]["msg"]
+                data = np.empty((0, 4))
+                graph2_latest.append({"msg": old_msg, "data": data})
+            elif msg.topic.startswith("data/raw/iv_measurement"):
+                data = graph2_latest[0]["data"]
+                kind_ix = msg.topic.index("iv_measurement")
+                kind = msg.topic[kind_ix:]
+                pdata = process_iv(payload, kind)
 
-            if invert_current[0] is True:
-                pdata[:, 4] = -1 * pdata[:, 4]
+                if invert_current[0] is True:
+                    pdata[:, 4] = -1 * pdata[:, 4]
 
-            if invert_voltage[0] is True:
-                pdata[:, 0] = -1 * pdata[:, 0]
+                if invert_voltage[0] is True:
+                    pdata[:, 0] = -1 * pdata[:, 0]
 
-            if len(data) == 0:
-                data0 = np.array(pdata[:, [0, 4]])
-                data1 = np.zeros(data0.shape)
-                data = np.append(data0, data1, axis=1)
-            else:
-                data[:, 2:] = np.array(pdata[:, [0, 4]])
-            graph2_latest.append({"msg": payload, "data": data})
-        elif msg.topic == "measurement/run":
-            read_config(payload)
-        elif msg.topic == "plotter/pause":
-            print(f"pause: {payload}")
-            paused.append(payload)
-        elif msg.topic == "plotter/invert_voltage":
-            print(f"invert voltage: {payload}")
-            invert_voltage.append(payload)
-        elif msg.topic == "plotter/invert_current":
-            print(f"invert current: {payload}")
-            invert_current.append(payload)
+                if len(data) == 0:
+                    data0 = np.array(pdata[:, [0, 4]])
+                    data1 = np.zeros(data0.shape)
+                    data = np.append(data0, data1, axis=1)
+                else:
+                    data[:, 2:] = np.array(pdata[:, [0, 4]])
+                graph2_latest.append({"msg": payload, "data": data})
+            elif msg.topic == "measurement/run":
+                read_config(payload)
+            elif msg.topic == "plotter/pause":
+                print(f"pause: {payload}")
+                paused.append(payload)
+            elif msg.topic == "plotter/invert_voltage":
+                print(f"invert voltage: {payload}")
+                invert_voltage.append(payload)
+            elif msg.topic == "plotter/invert_current":
+                print(f"invert current: {payload}")
+                invert_current.append(payload)
+        except:
+            pass
 
         msg_queue.task_done()
 

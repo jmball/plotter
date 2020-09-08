@@ -237,27 +237,30 @@ def msg_handler():
     while True:
         msg = msg_queue.get()
 
-        payload = pickle.loads(msg.payload)
+        try:
+            payload = pickle.loads(msg.payload)
 
-        if msg.topic == "plotter/eqe_measurement/clear":
-            print("EQE plotter cleared")
-            old_msg = graph5_latest[0]["msg"]
-            data = np.empty((0, 2))
-            graph5_latest.append({"msg": old_msg, "data": data})
-        elif msg.topic == "data/raw/eqe_measurement":
-            old_data = graph5_latest[0]["data"]
-            pdata = process_eqe(payload, "eqe_measurement")
-            wl = pdata[1]
-            eqe = pdata[-1]
-            data = np.append(old_data, np.array([[wl, eqe]]), axis=0)
-            graph5_latest.append({"msg": payload, "data": data})
-        elif msg.topic == "calibration/eqe":
-            read_eqe_cal(payload)
-        elif msg.topic == "measurement/run":
-            read_config(payload)
-        elif msg.topic == "plotter/pause":
-            print(f"pause: {payload}")
-            paused.append(payload)
+            if msg.topic == "plotter/eqe_measurement/clear":
+                print("EQE plotter cleared")
+                old_msg = graph5_latest[0]["msg"]
+                data = np.empty((0, 2))
+                graph5_latest.append({"msg": old_msg, "data": data})
+            elif msg.topic == "data/raw/eqe_measurement":
+                old_data = graph5_latest[0]["data"]
+                pdata = process_eqe(payload, "eqe_measurement")
+                wl = pdata[1]
+                eqe = pdata[-1]
+                data = np.append(old_data, np.array([[wl, eqe]]), axis=0)
+                graph5_latest.append({"msg": payload, "data": data})
+            elif msg.topic == "calibration/eqe":
+                read_eqe_cal(payload)
+            elif msg.topic == "measurement/run":
+                read_config(payload)
+            elif msg.topic == "plotter/pause":
+                print(f"pause: {payload}")
+                paused.append(payload)
+        except:
+            pass
 
         msg_queue.task_done()
 

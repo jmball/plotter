@@ -257,39 +257,42 @@ def msg_handler():
     while True:
         msg = msg_queue.get()
 
-        payload = pickle.loads(msg.payload)
+        try:
+            payload = pickle.loads(msg.payload)
 
-        if msg.topic == "plotter/mppt_measurement/clear":
-            print("MPPT plotter cleared")
-            old_msg = graph3_latest[0]["msg"]
-            data = np.empty((0, 5))
-            graph3_latest.append({"msg": old_msg, "data": data})
-        elif msg.topic == "data/raw/mppt_measurement":
-            old_data = graph3_latest[0]["data"]
-            pdata = process_ivt(payload, "mppt_measurement")
-            t = pdata[2]
-            v = pdata[0]
-            j = abs(pdata[4])
-            p = abs(pdata[5])
+            if msg.topic == "plotter/mppt_measurement/clear":
+                print("MPPT plotter cleared")
+                old_msg = graph3_latest[0]["msg"]
+                data = np.empty((0, 5))
+                graph3_latest.append({"msg": old_msg, "data": data})
+            elif msg.topic == "data/raw/mppt_measurement":
+                old_data = graph3_latest[0]["data"]
+                pdata = process_ivt(payload, "mppt_measurement")
+                t = pdata[2]
+                v = pdata[0]
+                j = abs(pdata[4])
+                p = abs(pdata[5])
 
-            if invert_voltage[0] is True:
-                v = -1 * v
+                if invert_voltage[0] is True:
+                    v = -1 * v
 
-            data = np.append(old_data, np.array([[0, j, p, v, t]]), axis=0,)
+                data = np.append(old_data, np.array([[0, j, p, v, t]]), axis=0,)
 
-            # time returned by smu is time in s since instrument turned on so
-            # measurement start offset needs to be substracted.
-            t_scaled = data[:, -1] - data[0, -1]
-            data[:, 0] = t_scaled
-            graph3_latest.append({"msg": payload, "data": data})
-        elif msg.topic == "measurement/run":
-            read_config(payload)
-        elif msg.topic == "plotter/pause":
-            print(f"pause: {payload}")
-            paused.append(payload)
-        elif msg.topic == "plotter/invert_voltage":
-            print(f"invert voltage: {payload}")
-            invert_voltage.append(payload)
+                # time returned by smu is time in s since instrument turned on so
+                # measurement start offset needs to be substracted.
+                t_scaled = data[:, -1] - data[0, -1]
+                data[:, 0] = t_scaled
+                graph3_latest.append({"msg": payload, "data": data})
+            elif msg.topic == "measurement/run":
+                read_config(payload)
+            elif msg.topic == "plotter/pause":
+                print(f"pause: {payload}")
+                paused.append(payload)
+            elif msg.topic == "plotter/invert_voltage":
+                print(f"invert voltage: {payload}")
+                invert_voltage.append(payload)
+        except:
+            pass
 
         msg_queue.task_done()
 

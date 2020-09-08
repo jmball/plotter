@@ -206,37 +206,40 @@ def msg_handler():
     while True:
         msg = msg_queue.get()
 
-        payload = pickle.loads(msg.payload)
+        try:
+            payload = pickle.loads(msg.payload)
 
-        if msg.topic == "plotter/it_measurement/clear":
-            print("I-t plotter cleared")
-            old_msg = graph4_latest[0]["msg"]
-            data = np.empty((0, 3))
-            graph4_latest.append({"msg": old_msg, "data": data})
-        elif msg.topic == "data/raw/it_measurement":
-            old_data = graph4_latest[0]["data"]
-            pdata = process_ivt(payload, "it_measurement")
-            t = pdata[2]
-            j = pdata[4]
+            if msg.topic == "plotter/it_measurement/clear":
+                print("I-t plotter cleared")
+                old_msg = graph4_latest[0]["msg"]
+                data = np.empty((0, 3))
+                graph4_latest.append({"msg": old_msg, "data": data})
+            elif msg.topic == "data/raw/it_measurement":
+                old_data = graph4_latest[0]["data"]
+                pdata = process_ivt(payload, "it_measurement")
+                t = pdata[2]
+                j = pdata[4]
 
-            if invert_current[0] is True:
-                j = -1 * j
+                if invert_current[0] is True:
+                    j = -1 * j
 
-            data = np.append(old_data, np.array([[0, j, t]]), axis=0)
+                data = np.append(old_data, np.array([[0, j, t]]), axis=0)
 
-            # time returned by smu is time in s since instrument turned on so
-            # measurement start offset needs to be substracted.
-            t_scaled = data[:, -1] - data[0, -1]
-            data[:, 0] = t_scaled
-            graph4_latest.append({"msg": payload, "data": data})
-        elif msg.topic == "measurement/run":
-            read_config(payload)
-        elif msg.topic == "plotter/pause":
-            print(f"pause: {payload}")
-            paused.append(payload)
-        elif msg.topic == "plotter/invert_current":
-            print(f"invert current: {payload}")
-            invert_current.append(payload)
+                # time returned by smu is time in s since instrument turned on so
+                # measurement start offset needs to be substracted.
+                t_scaled = data[:, -1] - data[0, -1]
+                data[:, 0] = t_scaled
+                graph4_latest.append({"msg": payload, "data": data})
+            elif msg.topic == "measurement/run":
+                read_config(payload)
+            elif msg.topic == "plotter/pause":
+                print(f"pause: {payload}")
+                paused.append(payload)
+            elif msg.topic == "plotter/invert_current":
+                print(f"invert current: {payload}")
+                invert_current.append(payload)
+        except:
+            pass
 
         msg_queue.task_done()
 
