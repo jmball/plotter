@@ -169,6 +169,8 @@ def process_iv(payload, kind):
     data = np.array(payload["data"])
     area = payload["pixel"]["area"]
 
+    print(f"device area: {area}")
+
     # calculate current density in mA/cm2
     j = data[:, 1] * 1000 / area
     p = data[:, 0] * j
