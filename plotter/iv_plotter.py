@@ -270,7 +270,7 @@ def publish_worker(mqttc):
         processed_q.task_done()
 
 
-if __name__ == "__main__":
+def main():
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -319,3 +319,6 @@ if __name__ == "__main__":
 
     # start dash server
     app.run_server(host=args.dashhost, port=8052, debug=False)
+
+if __name__ == "__main__":
+    main()
