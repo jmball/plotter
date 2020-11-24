@@ -16,7 +16,8 @@ import paho.mqtt.client as mqtt
 import plotly
 import plotly.subplots
 import plotly.graph_objs as go
-
+import argparse
+from flask import Flask
 
 def format_figure_3(data, fig, title="-"):
     """Format figure type 3.
@@ -167,8 +168,8 @@ fig3.update_yaxes(
 fig3.update_layout(
     font={"size": 16}, margin=dict(l=20, r=0, t=30, b=0), plot_bgcolor="rgba(0,0,0,0)"
 )
-
-app = dash.Dash(__name__)
+server = Flask(__name__)
+app = dash.Dash(__name__, server=server)
 
 log = logging.getLogger("werkzeug")
 log.disabled = True
@@ -237,23 +238,21 @@ def read_config(payload):
     payload : dict
         Request dictionary for measurement server.
     """
-    global config
 
     print("reading config...")
 
-    config = payload["config"]
+    return payload["config"]
 
 
-msg_queue = queue.Queue()
-
-
-def on_message(mqttc, obj, msg):
+def on_message(mqttc, obj, msg, msg_queue):
     """Act on an MQTT message."""
     msg_queue.put_nowait(msg)
 
 
-def msg_handler():
+def msg_handler(msg_queue):
     """Handle incoming MQTT messages."""
+    # init empty dicts for caching latest data
+    config = {}
     while True:
         msg = msg_queue.get()
 
@@ -284,7 +283,7 @@ def msg_handler():
                 data[:, 0] = t_scaled
                 graph3_latest.append({"msg": payload, "data": data})
             elif msg.topic == "measurement/run":
-                read_config(payload)
+                config = read_config(payload)
             elif msg.topic == "plotter/pause":
                 print(f"pause: {payload}")
                 paused.append(payload)
@@ -312,8 +311,6 @@ def publish_worker(mqttc):
 
 
 def main():
-    import argparse
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--mqtthost",
@@ -324,24 +321,23 @@ def main():
     parser.add_argument(
         "--dashhost",
         type=str,
-        default="127.0.0.1",
-        help="IP address or hostname for dash server.",
+        default="0.0.0.0",
+        help="Where dash server should listen.",
     )
 
     args = parser.parse_args()
 
-    # init empty dicts for caching latest data
-    config = {}
-    eqe_calibration = {}
-
     # create mqtt client id
     client_id = f"plotter-{uuid.uuid4().hex}"
 
+    # queue for storing incoming messages
+    msg_queue = queue.Queue()
+
     # start the msg queue thread
-    threading.Thread(target=msg_handler, daemon=True).start()
+    threading.Thread(target=msg_handler, args=(msg_queue,), daemon=True).start()
 
     mqtt_analyser = mqtt.Client(client_id)
-    mqtt_analyser.on_message = on_message
+    mqtt_analyser.on_message = lambda mqttc, obj, msg: on_message(mqttc, obj, msg, msg_queue)
 
     # connect MQTT client to broker
     mqtt_analyser.connect(args.mqtthost)
