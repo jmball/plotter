@@ -273,6 +273,8 @@ def main():
         "--mqtthost",
         type=str,
         default="127.0.0.1",
+        const="127.0.0.1",
+        nargs='?',
         help="IP address or hostname for MQTT broker.",
     )
     parser.add_argument(
