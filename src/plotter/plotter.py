@@ -727,8 +727,7 @@ def on_message(mqttc, obj, msg):
     elif msg.topic == "measurement/run":
         read_config(payload)
 
-
-if __name__ == "__main__":
+def main():
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -771,3 +770,7 @@ if __name__ == "__main__":
 
     # start dash server
     app.run_server(host=args.dashhost, debug=False)
+
+
+if __name__ == "__main__":
+    main()

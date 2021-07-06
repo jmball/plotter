@@ -17,7 +17,8 @@ import plotly
 import plotly.subplots
 import plotly.graph_objs as go
 import scipy as sp
-import scipy.interpolate
+import argparse
+from flask import Flask
 
 
 def format_figure_5(data, fig, title="-"):
@@ -105,8 +106,8 @@ fig5.update_yaxes(
 fig5.update_layout(
     font={"size": 16}, margin=dict(l=20, r=0, t=30, b=0), plot_bgcolor="rgba(0,0,0,0)"
 )
-
-app = dash.Dash(__name__)
+server = Flask(__name__)
+app = dash.Dash(__name__, server=server)
 
 log = logging.getLogger("werkzeug")
 log.disabled = True
@@ -141,7 +142,7 @@ def update_graph_live(n, g5):
     return [g5]
 
 
-def process_eqe(payload, kind):
+def process_eqe(payload, kind, eqe_calibration, config):
     """Calculate EQE.
 
     Parameters
@@ -202,11 +203,10 @@ def read_eqe_cal(payload):
     payload : dict
         Payload dictionary.
     """
-    global eqe_calibration
 
     print("reading eqe cal...")
 
-    eqe_calibration = payload["data"]
+    return payload["data"]
 
 
 def read_config(payload):
@@ -217,23 +217,24 @@ def read_config(payload):
     payload : dict
         Request dictionary for measurement server.
     """
-    global config
 
     print("reading config...")
 
-    config = payload["config"]
+    return payload["config"]
 
 
-msg_queue = queue.Queue()
-
-
-def on_message(mqttc, obj, msg):
+def on_message(mqttc, obj, msg, msg_queue):
     """Act on an MQTT message."""
     msg_queue.put_nowait(msg)
 
 
-def msg_handler():
+def msg_handler(msg_queue):
     """Handle incoming MQTT messages."""
+
+    # init empty dicts for caching latest data
+    config = {}
+    eqe_calibration = {}
+
     while True:
         msg = msg_queue.get()
 
@@ -247,15 +248,15 @@ def msg_handler():
                 graph5_latest.append({"msg": old_msg, "data": data})
             elif msg.topic == "data/raw/eqe_measurement":
                 old_data = graph5_latest[0]["data"]
-                pdata = process_eqe(payload, "eqe_measurement")
+                pdata = process_eqe(payload, "eqe_measurement", eqe_calibration, config)
                 wl = pdata[1]
                 eqe = pdata[-1]
                 data = np.append(old_data, np.array([[wl, eqe]]), axis=0)
                 graph5_latest.append({"msg": payload, "data": data})
             elif msg.topic == "calibration/eqe":
-                read_eqe_cal(payload)
+                eqe_calibration = read_eqe_cal(payload)
             elif msg.topic == "measurement/run":
-                read_config(payload)
+                config = read_config(payload)
             elif msg.topic == "plotter/pause":
                 print(f"pause: {payload}")
                 paused.append(payload)
@@ -279,37 +280,36 @@ def publish_worker(mqttc):
         processed_q.task_done()
 
 
-if __name__ == "__main__":
-    import argparse
+def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--mqtthost",
         type=str,
         default="127.0.0.1",
+        const="127.0.0.1",
+        nargs='?',
         help="IP address or hostname for MQTT broker.",
     )
     parser.add_argument(
         "--dashhost",
         type=str,
-        default="127.0.0.1",
-        help="IP address or hostname for dash server.",
+        default="0.0.0.0",
+        help="Where dash server should listen.",
     )
 
     args = parser.parse_args()
 
-    # init empty dicts for caching latest data
-    config = {}
-    eqe_calibration = {}
-
     # create mqtt client id
     client_id = f"plotter-{uuid.uuid4().hex}"
 
+    msg_queue = queue.Queue()
+
     # start the msg queue thread
-    threading.Thread(target=msg_handler, daemon=True).start()
+    threading.Thread(target=msg_handler, args=(msg_queue,), daemon=True).start()
 
     mqtt_analyser = mqtt.Client(client_id)
-    mqtt_analyser.on_message = on_message
+    mqtt_analyser.on_message =  lambda mqttc, obj, msg: on_message(mqttc, obj, msg, msg_queue)
 
     # connect MQTT client to broker
     mqtt_analyser.connect(args.mqtthost)
@@ -329,3 +329,6 @@ if __name__ == "__main__":
 
     # start dash server
     app.run_server(host=args.dashhost, port=8055, debug=False)
+
+if __name__ == "__main__":
+    main()
