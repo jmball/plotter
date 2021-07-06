@@ -166,7 +166,7 @@ def process_iv(payload, kind):
     kind : str
         Kind of measurement data.
     """
-    data = np.array(payload["data"])
+    data = np.array(payload["data"], dtype=float)
     area = payload["pixel"]["area"]
 
     print(f"device area: {area}")
