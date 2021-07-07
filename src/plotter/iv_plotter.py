@@ -218,11 +218,11 @@ def msg_handler(msg_queue):
             elif msg.topic == "plotter/live_device":
                 live_device = payload
             elif msg.topic.startswith("data/raw/iv_measurement"):
+                kind_ix = msg.topic.index("iv_measurement")
+                kind = msg.topic[kind_ix:]
                 pdata = process_iv(payload, kind)
                 if (live_device is None) or (payload["pixel"]["device_label"] == live_device):
                     data = graph2_latest[0]["data"]
-                    kind_ix = msg.topic.index("iv_measurement")
-                    kind = msg.topic[kind_ix:]
 
                     if invert_current[0] is True:
                         pdata[:, 4] = -1 * pdata[:, 4]
