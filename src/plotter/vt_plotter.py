@@ -247,8 +247,8 @@ def main():
     parser.add_argument(
         "--mqtthost",
         type=str,
-        default="arkmetricasmu33e",
-        const="arkmetricasmu33e",
+        default="127.0.0.1",
+        const="127.0.0.1",
         nargs='?',
         help="IP address or hostname for MQTT broker.",
     )
