@@ -145,12 +145,8 @@ def update_graph_live(n, g2):
     if paused[0] is False:
         g2_latest = graph2_latest[0]
 
-        label = g2_latest["msg"]["pixel"]["label"]
-        pixel = g2_latest["msg"]["pixel"]["pixel"]
-        idn = f"{label}_device{pixel}"
-
         # update figures
-        g2 = format_figure_2(g2_latest["data"], g2, idn)
+        g2 = format_figure_2(g2_latest["data"], g2, g2_latest["msg"]["pixel"]["device_label"])
 
     return [g2]
 
@@ -206,6 +202,8 @@ def msg_handler(msg_queue):
     """Handle incoming MQTT messages."""
     # init empty dicts for caching latest data
     config = {}
+    live_device = None  # keep track of which device to plot
+
     while True:
         msg = msg_queue.get()
 
@@ -217,25 +215,28 @@ def msg_handler(msg_queue):
                 old_msg = graph2_latest[0]["msg"]
                 data = np.empty((0, 4))
                 graph2_latest.append({"msg": old_msg, "data": data})
+            elif msg.topic == "plotter/live_device":
+                live_device = payload
             elif msg.topic.startswith("data/raw/iv_measurement"):
-                data = graph2_latest[0]["data"]
-                kind_ix = msg.topic.index("iv_measurement")
-                kind = msg.topic[kind_ix:]
                 pdata = process_iv(payload, kind)
+                if (live_device is None) or (payload["pixel"]["device_label"] == live_device):
+                    data = graph2_latest[0]["data"]
+                    kind_ix = msg.topic.index("iv_measurement")
+                    kind = msg.topic[kind_ix:]
 
-                if invert_current[0] is True:
-                    pdata[:, 4] = -1 * pdata[:, 4]
+                    if invert_current[0] is True:
+                        pdata[:, 4] = -1 * pdata[:, 4]
 
-                if invert_voltage[0] is True:
-                    pdata[:, 0] = -1 * pdata[:, 0]
+                    if invert_voltage[0] is True:
+                        pdata[:, 0] = -1 * pdata[:, 0]
 
-                if len(data) == 0:
-                    data0 = np.array(pdata[:, [0, 4]])
-                    data1 = np.zeros(data0.shape)
-                    data = np.append(data0, data1, axis=1)
-                else:
-                    data[:, 2:] = np.array(pdata[:, [0, 4]])
-                graph2_latest.append({"msg": payload, "data": data})
+                    if len(data) == 0:
+                        data0 = np.array(pdata[:, [0, 4]])
+                        data1 = np.zeros(data0.shape)
+                        data = np.append(data0, data1, axis=1)
+                    else:
+                        data[:, 2:] = np.array(pdata[:, [0, 4]])
+                    graph2_latest.append({"msg": payload, "data": data})
             elif msg.topic == "measurement/run":
                 config = read_config(payload)
             elif msg.topic == "plotter/pause":

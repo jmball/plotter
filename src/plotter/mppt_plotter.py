@@ -194,12 +194,8 @@ def update_graph_live(n, g3):
     if paused[0] is False:
         g3_latest = graph3_latest[0]
 
-        label = g3_latest["msg"]["pixel"]["label"]
-        pixel = g3_latest["msg"]["pixel"]["pixel"]
-        idn = f"{label}_device{pixel}"
-
         # update figures
-        g3 = format_figure_3(g3_latest["data"], g3, idn)
+        g3 = format_figure_3(g3_latest["data"], g3, g3_latest["msg"]["pixel"]["device_label"])
 
     return [g3]
 
@@ -253,6 +249,8 @@ def msg_handler(msg_queue):
     """Handle incoming MQTT messages."""
     # init empty dicts for caching latest data
     config = {}
+    live_device = None  # keep track of which device to plot
+
     while True:
         msg = msg_queue.get()
 
@@ -264,24 +262,27 @@ def msg_handler(msg_queue):
                 old_msg = graph3_latest[0]["msg"]
                 data = np.empty((0, 5))
                 graph3_latest.append({"msg": old_msg, "data": data})
+            elif msg.topic == "plotter/live_device":
+                live_device = payload
             elif msg.topic == "data/raw/mppt_measurement":
-                old_data = graph3_latest[0]["data"]
                 pdata = process_ivt(payload, "mppt_measurement")
-                t = pdata[2]
-                v = pdata[0]
-                j = abs(pdata[4])
-                p = abs(pdata[5])
+                if (live_device is None) or (payload["pixel"]["device_label"] == live_device):
+                    old_data = graph3_latest[0]["data"]
+                    t = pdata[2]
+                    v = pdata[0]
+                    j = abs(pdata[4])
+                    p = abs(pdata[5])
 
-                if invert_voltage[0] is True:
-                    v = -1 * v
+                    if invert_voltage[0] is True:
+                        v = -1 * v
 
-                data = np.append(old_data, np.array([[0, j, p, v, t]]), axis=0,)
+                    data = np.append(old_data, np.array([[0, j, p, v, t]]), axis=0,)
 
-                # time returned by smu is time in s since instrument turned on so
-                # measurement start offset needs to be substracted.
-                t_scaled = data[:, -1] - data[0, -1]
-                data[:, 0] = t_scaled
-                graph3_latest.append({"msg": payload, "data": data})
+                    # time returned by smu is time in s since instrument turned on so
+                    # measurement start offset needs to be substracted.
+                    t_scaled = data[:, -1] - data[0, -1]
+                    data[:, 0] = t_scaled
+                    graph3_latest.append({"msg": payload, "data": data})
             elif msg.topic == "measurement/run":
                 config = read_config(payload)
             elif msg.topic == "plotter/pause":

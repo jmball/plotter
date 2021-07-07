@@ -132,12 +132,8 @@ def update_graph_live(n, g5):
     if paused[0] is False:
         g5_latest = graph5_latest[0]
 
-        label = g5_latest["msg"]["pixel"]["label"]
-        pixel = g5_latest["msg"]["pixel"]["pixel"]
-        idn = f"{label}_device{pixel}"
-
         # update figures
-        g5 = format_figure_5(g5_latest["data"], g5, idn)
+        g5 = format_figure_5(g5_latest["data"], g5, g5_latest["msg"]["pixel"]["device_label"])
 
     return [g5]
 
