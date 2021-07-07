@@ -85,7 +85,7 @@ processed_q = queue.Queue()
 
 # initialise plot info/data queues
 graph2_latest.append(
-    {"msg": {"pixel": {"label": "-", "pixel": "-"}}, "data": np.empty((0, 4))}
+    {"msg": {"pixel": {"device_label": "-"}}, "data": np.empty((0, 4))}
 )
 
 # initial figure properties
