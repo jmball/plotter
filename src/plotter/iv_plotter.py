@@ -217,6 +217,10 @@ def msg_handler(msg_queue):
                 graph2_latest.append({"msg": old_msg, "data": data})
             elif msg.topic == "plotter/live_device":
                 live_device = payload
+                print("I-V plotter cleared")
+                old_msg = graph2_latest[0]["msg"]
+                data = np.empty((0, 4))
+                graph2_latest.append({"msg": old_msg, "data": data})
             elif msg.topic.startswith("data/raw/iv_measurement"):
                 kind_ix = msg.topic.index("iv_measurement")
                 kind = msg.topic[kind_ix:]

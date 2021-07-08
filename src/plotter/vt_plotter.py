@@ -194,6 +194,10 @@ def msg_handler(msg_queue):
                 graph1_latest.append({"msg": old_msg, "data": data})
             elif msg.topic == "plotter/live_device":
                 live_device = payload
+                print("V-t plotter cleared")
+                old_msg = graph1_latest[0]["msg"]
+                data = np.empty((0, 3))
+                graph1_latest.append({"msg": old_msg, "data": data})
             elif msg.topic == "data/raw/vt_measurement":
                 pdata = process_ivt(payload, "vt_measurement")
                 if (live_device is None) or (payload["pixel"]["device_label"] == live_device):

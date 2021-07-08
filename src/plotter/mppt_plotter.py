@@ -264,6 +264,10 @@ def msg_handler(msg_queue):
                 graph3_latest.append({"msg": old_msg, "data": data})
             elif msg.topic == "plotter/live_device":
                 live_device = payload
+                print("MPPT plotter cleared")
+                old_msg = graph3_latest[0]["msg"]
+                data = np.empty((0, 5))
+                graph3_latest.append({"msg": old_msg, "data": data})
             elif msg.topic == "data/raw/mppt_measurement":
                 pdata = process_ivt(payload, "mppt_measurement")
                 if (live_device is None) or (payload["pixel"]["device_label"] == live_device):
