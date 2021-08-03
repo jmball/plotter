@@ -290,7 +290,8 @@ def main():
 
     print(f"{client_id} connected!")
 
-    mqtt_analyser.loop_start()
+    # start the mqtt client loop in its own thread to handle connection retries
+    threading.Thread(target=mqtt_analyser.loop_forever, daemon=True).start()
 
     # start dash server
     app.run_server(host=args.dashhost, port=8051, debug=False)
