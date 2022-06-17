@@ -210,21 +210,22 @@ def process_ivt(payload, kind):
     kind : str
         Kind of measurement data.
     """
-    data = payload["data"][0]
+    data = payload["data"]
     area = payload["pixel"]["area"]
 
-    # calculate current density in mA/cm2
-    j = data[1] * 1000 / area
-    p = data[0] * j
-    data.append(j)
-    data.append(p)
+    new_data = []
+    for element in data:
+        # calculate current density in mA/cm2
+        j = element[1] * 1000 / area
+        p = element[0] * j
+        new_element = element + (j, p)
+        new_data.append(new_element)
 
     # add processed data back into payload to be sent on
-    payload["data"] = data
+    payload["data"] = new_data
     processed_q.put([f"data/processed/{kind}", payload])
 
-    return data
-
+    return new_data
 
 def read_config(payload):
     """Get config data from payload.
