@@ -205,8 +205,8 @@ def msg_handler(msg_queue):
                 if (live_device is None) or (payload["pixel"]["device_label"] == live_device):
                     old_data = graph1_latest[0]["data"]
                     
-                    t = pdata[2]
-                    v = pdata[0]
+                    t = pdata[0][2]
+                    v = pdata[0][0]
 
                     if invert_voltage[0] is True:
                         v = -1 * v

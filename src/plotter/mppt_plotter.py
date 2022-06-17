@@ -273,10 +273,10 @@ def msg_handler(msg_queue):
                 pdata = process_ivt(payload, "mppt_measurement")
                 if (live_device is None) or (payload["pixel"]["device_label"] == live_device):
                     old_data = graph3_latest[0]["data"]
-                    t = pdata[2]
-                    v = pdata[0]
-                    j = abs(pdata[4])
-                    p = abs(pdata[5])
+                    t = pdata[0][2]
+                    v = pdata[0][0]
+                    j = abs(pdata[0][4])
+                    p = abs(pdata[0][5])
 
                     if invert_voltage[0] is True:
                         v = -1 * v
