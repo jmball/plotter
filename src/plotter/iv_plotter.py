@@ -179,19 +179,6 @@ def process_iv(payload, kind):
     return data
 
 
-def read_config(payload):
-    """Get config data from payload.
-
-    Parameters
-    ----------
-    payload : dict
-        Request dictionary for measurement server.
-    """
-
-    print("reading config...")
-
-    return payload["config"]
-
 
 def on_message(mqttc, obj, msg, msg_queue):
     """Act on an MQTT message."""
@@ -201,7 +188,6 @@ def on_message(mqttc, obj, msg, msg_queue):
 def msg_handler(msg_queue):
     """Handle incoming MQTT messages."""
     # init empty dicts for caching latest data
-    config = {}
     live_device = None  # keep track of which device to plot
 
     while True:
@@ -241,8 +227,6 @@ def msg_handler(msg_queue):
                     else:
                         data[:, 2:] = np.array(pdata[:, [0, 4]])
                     graph2_latest.append({"msg": payload, "data": data})
-            elif msg.topic == "measurement/run":
-                config = read_config(payload)
             elif msg.topic == "plotter/pause":
                 print(f"pause: {payload}")
                 paused.append(payload)
@@ -268,7 +252,7 @@ def publish_worker(mqttc):
     """
     while True:
         topic, payload = processed_q.get()
-        mqttc.publish(topic, pickle.dumps(payload), 2).wait_for_publish()
+        mqttc.publish(topic, json.dumps(payload), 2).wait_for_publish()
         processed_q.task_done()
 
 

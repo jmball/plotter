@@ -218,27 +218,14 @@ def process_ivt(payload, kind):
         # calculate current density in mA/cm2
         j = element[1] * 1000 / area
         p = element[0] * j
-        new_element = element + (j, p)
-        new_data.append(new_element)
+        new_element = element + [j, p]
+        new_data.append(tuple(new_element))
 
     # add processed data back into payload to be sent on
     payload["data"] = new_data
     processed_q.put([f"data/processed/{kind}", payload])
 
     return new_data
-
-def read_config(payload):
-    """Get config data from payload.
-
-    Parameters
-    ----------
-    payload : dict
-        Request dictionary for measurement server.
-    """
-
-    print("reading config...")
-
-    return payload["config"]
 
 
 def on_message(mqttc, obj, msg, msg_queue):
@@ -249,7 +236,6 @@ def on_message(mqttc, obj, msg, msg_queue):
 def msg_handler(msg_queue):
     """Handle incoming MQTT messages."""
     # init empty dicts for caching latest data
-    config = {}
     live_device = None  # keep track of which device to plot
 
     while True:
@@ -288,8 +274,6 @@ def msg_handler(msg_queue):
                     t_scaled = data[:, -1] - data[0, -1]
                     data[:, 0] = t_scaled
                     graph3_latest.append({"msg": payload, "data": data})
-            elif msg.topic == "measurement/run":
-                config = read_config(payload)
             elif msg.topic == "plotter/pause":
                 print(f"pause: {payload}")
                 paused.append(payload)
@@ -312,7 +296,7 @@ def publish_worker(mqttc):
     """
     while True:
         topic, payload = processed_q.get()
-        mqttc.publish(topic, pickle.dumps(payload), 2).wait_for_publish()
+        mqttc.publish(topic, json.dumps(payload), 2).wait_for_publish()
         processed_q.task_done()
 
 
