@@ -160,20 +160,22 @@ def process_ivt(payload, kind):
     kind : str
         Kind of measurement data.
     """
-    data = list(payload["data"])
+    data = payload["data"]
     area = payload["pixel"]["area"]
 
-    # calculate current density in mA/cm2
-    j = data[1] * 1000 / area
-    p = data[0] * j
-    data.append(j)
-    data.append(p)
+    new_data = []
+    for element in data:
+        # calculate current density in mA/cm2
+        j = element[1] * 1000 / area
+        p = element[0] * j
+        new_element = element + (j, p)
+        new_data.append(new_element)
 
     # add processed data back into payload to be sent on
-    payload["data"] = data
+    payload["data"] = new_data
     processed_q.put([f"data/processed/{kind}", payload])
 
-    return data
+    return new_data
 
 
 def read_config(payload):
@@ -223,8 +225,8 @@ def msg_handler(msg_queue):
                 if (live_device is None) or (payload["pixel"]["device_label"] == live_device):
                     old_data = graph4_latest[0]["data"]
                     
-                    t = pdata[2]
-                    j = pdata[4]
+                    t = pdata[0][2]
+                    j = pdata[0][4]
 
                     if invert_current[0] is True:
                         j = -1 * j
