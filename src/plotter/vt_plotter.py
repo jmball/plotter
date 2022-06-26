@@ -3,7 +3,7 @@
 
 import collections
 import logging
-import pickle
+import json
 import queue
 import threading
 import uuid
@@ -185,7 +185,7 @@ def msg_handler(msg_queue):
         msg = msg_queue.get()
 
         try:
-            payload = pickle.loads(msg.payload)
+            payload = json.loads(msg.payload.decode())
 
             if msg.topic == "plotter/vt_measurement/clear":
                 print("V-t plotter cleared")
@@ -240,7 +240,7 @@ def publish_worker(mqttc):
     """
     while True:
         topic, payload = processed_q.get()
-        mqttc.publish(topic, pickle.dumps(payload), 2).wait_for_publish()
+        mqttc.publish(topic, json.dumps(payload), 2).wait_for_publish()
         processed_q.task_done()
 
 

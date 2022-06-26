@@ -3,7 +3,7 @@
 
 import collections
 import logging
-import pickle
+import json
 import queue
 import threading
 import uuid
@@ -208,7 +208,7 @@ def msg_handler(msg_queue):
         msg = msg_queue.get()
 
         try:
-            payload = pickle.loads(msg.payload)
+            payload = json.loads(msg.payload.decode())
 
             if msg.topic == "plotter/iv_measurement/clear":
                 print("I-V plotter cleared")
