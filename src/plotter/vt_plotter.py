@@ -268,7 +268,6 @@ def main():
     # subscribe to data and request topics
     mqtt_analyser.subscribe("data/raw/vt_measurement", qos=2)
     mqtt_analyser.subscribe("plotter/#", qos=2)
-    mqtt_analyser.subscribe("measurement/run", qos=2)
 
     # start the sender (publishes messages from worker and manager)
     threading.Thread(target=publish_worker, args=(mqtt_analyser,), daemon=True).start()
