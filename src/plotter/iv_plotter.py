@@ -157,7 +157,10 @@ def process_iv(payload):
         Payload dictionary.
     """
     data = np.array(payload["data"], dtype=float)
-    area = payload["pixel"]["area"]
+    if payload["sweep"] == "dark":
+        area = payload["pixel"]["dark_area"]
+    else:
+        area = payload["pixel"]["area"]
 
     print(f"device area: {area}")
 
