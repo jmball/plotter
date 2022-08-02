@@ -79,9 +79,6 @@ invert_voltage = collections.deque(maxlen=1)
 invert_voltage.append(False)
 paused.append(False)
 
-# queue from which processed data is published with mqtt
-processed_q = queue.Queue()
-
 # initialise plot info/data queues
 graph3_latest.append(
     {"msg": {"pixel": {"device_label": "-"}}, "data": np.empty((0, 5))}
@@ -221,10 +218,6 @@ def process_ivt(payload, kind):
         new_element = element + [j, p]
         new_data.append(tuple(new_element))
 
-    # add processed data back into payload to be sent on
-    payload["data"] = new_data
-    processed_q.put([f"data/processed/{kind}", payload])
-
     return new_data
 
 
@@ -286,20 +279,6 @@ def msg_handler(msg_queue):
         msg_queue.task_done()
 
 
-def publish_worker(mqttc):
-    """Publish payloads added to queue.
-
-    Parameters
-    ----------
-    mqttc : mqtt.Client
-        MQTT client.
-    """
-    while True:
-        topic, payload = processed_q.get()
-        mqttc.publish(topic, json.dumps(payload), 2).wait_for_publish()
-        processed_q.task_done()
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -337,9 +316,6 @@ def main():
     # subscribe to data and request topics
     mqtt_analyser.subscribe("data/raw/mppt_measurement", qos=2)
     mqtt_analyser.subscribe("plotter/#", qos=2)
-
-    # start the sender (publishes messages from worker and manager)
-    threading.Thread(target=publish_worker, args=(mqtt_analyser,), daemon=True).start()
 
     print(f"{client_id} connected!")
 

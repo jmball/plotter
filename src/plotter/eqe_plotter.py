@@ -70,9 +70,6 @@ paused = collections.deque(maxlen=1)
 paused.append(False)
 
 
-# queue from which processed data is published with mqtt
-processed_q = queue.Queue()
-
 # initialise plot info/data queues
 graph5_latest.append(
     {"msg": {"pixel": {"device_label": "-"}}, "data": np.empty((0, 2))}
@@ -181,10 +178,6 @@ def process_eqe(payload, kind, eqe_calibration, config):
         meas_eqe = f_ref(meas_wl) * meas_sig / f_cal(meas_wl)
         meas.append(meas_eqe)
 
-        # publish
-        payload["data"] = meas
-        processed_q.put([f"data/processed/{kind}", payload])
-
         return meas
     else:
         print("no eqe calibration available")
@@ -262,19 +255,6 @@ def msg_handler(msg_queue):
         msg_queue.task_done()
 
 
-def publish_worker(mqttc):
-    """Publish payloads added to queue.
-
-    Parameters
-    ----------
-    mqttc : mqtt.Client
-        MQTT client.
-    """
-    while True:
-        topic, payload = processed_q.get()
-        mqttc.publish(topic, json.dumps(payload), 2).wait_for_publish()
-        processed_q.task_done()
-
 
 def main():
 
@@ -315,9 +295,6 @@ def main():
     mqtt_analyser.subscribe("data/raw/eqe_measurement", qos=2)
     mqtt_analyser.subscribe("plotter/#", qos=2)
     mqtt_analyser.subscribe("measurement/run", qos=2)
-
-    # start the publish worker
-    threading.Thread(target=publish_worker, args=(mqtt_analyser,), daemon=True).start()
 
     print(f"{client_id} connected!")
 
