@@ -148,15 +148,13 @@ def update_graph_live(n, g2):
     return [g2]
 
 
-def process_iv(payload, kind):
+def process_iv(payload):
     """Calculate derived I-V parameters.
 
     Parameters
     ----------
     payload : dict
         Payload dictionary.
-    kind : str
-        Kind of measurement data.
     """
     data = np.array(payload["data"], dtype=float)
     area = payload["pixel"]["area"]
@@ -200,9 +198,7 @@ def msg_handler(msg_queue):
                 data = np.empty((0, 4))
                 graph2_latest.append({"msg": old_msg, "data": data})
             elif msg.topic.startswith("data/raw/iv_measurement"):
-                kind_ix = msg.topic.index("iv_measurement")
-                kind = msg.topic[kind_ix:]
-                pdata = process_iv(payload, kind)
+                pdata = process_iv(payload)
                 if (live_device is None) or (payload["pixel"]["device_label"] == live_device):
                     data = graph2_latest[0]["data"]
 
