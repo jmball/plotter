@@ -162,8 +162,6 @@ def process_iv(payload):
     else:
         area = payload["pixel"]["area"]
 
-    print(f"device area: {area}")
-
     # calculate current density in mA/cm2
     j = data[:, 1] * 1000 / area
     p = data[:, 0] * j
@@ -190,13 +188,11 @@ def msg_handler(msg_queue):
             payload = json.loads(msg.payload.decode())
 
             if msg.topic == "plotter/iv_measurement/clear":
-                print("I-V plotter cleared")
                 old_msg = graph2_latest[0]["msg"]
                 data = np.empty((0, 4))
                 graph2_latest.append({"msg": old_msg, "data": data})
             elif msg.topic == "plotter/live_device":
                 live_device = payload
-                print("I-V plotter cleared")
                 old_msg = graph2_latest[0]["msg"]
                 data = np.empty((0, 4))
                 graph2_latest.append({"msg": old_msg, "data": data})
@@ -219,13 +215,10 @@ def msg_handler(msg_queue):
                         data[:, 2:] = np.array(pdata[:, [0, 4]])
                     graph2_latest.append({"msg": payload, "data": data})
             elif msg.topic == "plotter/pause":
-                print(f"pause: {payload}")
                 paused.append(payload)
             elif msg.topic == "plotter/invert_voltage":
-                print(f"invert voltage: {payload}")
                 invert_voltage.append(payload)
             elif msg.topic == "plotter/invert_current":
-                print(f"invert current: {payload}")
                 invert_current.append(payload)
         except:
             pass
@@ -270,8 +263,6 @@ def main():
     # subscribe to data and request topics
     mqtt_analyser.subscribe("data/raw/iv_measurement/#", qos=2)
     mqtt_analyser.subscribe("plotter/#", qos=2)
-
-    print(f"{client_id} connected!")
 
     # start the mqtt client loop in its own thread to handle connection retries
     threading.Thread(target=mqtt_analyser.loop_forever, daemon=True).start()

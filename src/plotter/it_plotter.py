@@ -188,13 +188,11 @@ def msg_handler(msg_queue):
             payload = json.loads(msg.payload.decode())
 
             if msg.topic == "plotter/it_measurement/clear":
-                print("I-t plotter cleared")
                 old_msg = graph4_latest[0]["msg"]
                 data = np.empty((0, 3))
                 graph4_latest.append({"msg": old_msg, "data": data})
             elif msg.topic == "plotter/live_device":
                 live_device = payload
-                print("I-t plotter cleared")
                 old_msg = graph4_latest[0]["msg"]
                 data = np.empty((0, 3))
                 graph4_latest.append({"msg": old_msg, "data": data})
@@ -217,10 +215,8 @@ def msg_handler(msg_queue):
                     data[:, 0] = t_scaled
                     graph4_latest.append({"msg": payload, "data": data})
             elif msg.topic == "plotter/pause":
-                print(f"pause: {payload}")
                 paused.append(payload)
             elif msg.topic == "plotter/invert_current":
-                print(f"invert current: {payload}")
                 invert_current.append(payload)
         except:
             pass
@@ -265,8 +261,6 @@ def main():
     # subscribe to data and request topics
     mqtt_analyser.subscribe("data/raw/it_measurement", qos=2)
     mqtt_analyser.subscribe("plotter/#", qos=2)
-
-    print(f"{client_id} connected!")
 
     # start the mqtt client loop in its own thread to handle connection retries
     threading.Thread(target=mqtt_analyser.loop_forever, daemon=True).start()
