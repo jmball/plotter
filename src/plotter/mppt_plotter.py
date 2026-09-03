@@ -171,14 +171,27 @@ app = dash.Dash(__name__, server=server)
 log = logging.getLogger("werkzeug")
 log.disabled = True
 
-app.layout = html.Div(
-    html.Div(
-        [
-            dcc.Graph(id="g3", figure=fig3, style={"width": "95vw", "height": "95vh"}),
-            dcc.Interval(id="interval-component", interval=500, n_intervals=0,),
-        ],
-    ),
-)
+def create_layout(update_interval_ms=500):
+    """Create the MPPT layout with the requested browser refresh interval."""
+    return html.Div(
+        html.Div(
+            [
+                dcc.Graph(
+                    id="g3",
+                    figure=fig3,
+                    style={"width": "95vw", "height": "95vh"},
+                ),
+                dcc.Interval(
+                    id="interval-component",
+                    interval=update_interval_ms,
+                    n_intervals=0,
+                ),
+            ],
+        ),
+    )
+
+
+app.layout = create_layout()
 
 
 @app.callback(
@@ -275,7 +288,24 @@ def msg_handler(msg_queue):
         msg_queue.task_done()
 
 
-def main():
+def positive_integer(value):
+    """Parse a strictly positive integer for an argparse option."""
+    integer = int(value)
+    if integer <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return integer
+
+
+def valid_port(value):
+    """Parse a valid TCP port for an argparse option."""
+    port = int(value)
+    if not 1 <= port <= 65535:
+        raise argparse.ArgumentTypeError("must be between 1 and 65535")
+    return port
+
+
+def parse_args(argv=None):
+    """Parse MPPT plotter command-line arguments."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--mqtthost",
@@ -291,8 +321,30 @@ def main():
         default="0.0.0.0",
         help="Where dash server should listen.",
     )
+    parser.add_argument(
+        "--update-interval-ms",
+        type=positive_integer,
+        default=500,
+        help="Dash graph refresh interval in milliseconds.",
+    )
+    parser.add_argument(
+        "--dashport",
+        type=valid_port,
+        default=8053,
+        help="TCP port for the Dash server.",
+    )
 
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def run_dash(args):
+    """Configure and start Dash using parsed command-line settings."""
+    app.layout = create_layout(args.update_interval_ms)
+    app.run(host=args.dashhost, port=args.dashport, debug=False)
+
+
+def main():
+    args = parse_args()
 
     # create mqtt client id
     client_id = f"plotter-{uuid.uuid4().hex}"
@@ -319,8 +371,8 @@ def main():
     # start the mqtt client loop in its own thread to handle connection retries
     threading.Thread(target=mqtt_analyser.loop_forever, daemon=True).start()
 
-    # start dash server
-    app.run(host=args.dashhost, port=8053, debug=False)
+    # Configure the interval and start the Dash server.
+    run_dash(args)
 
 if __name__ == "__main__":
     main()

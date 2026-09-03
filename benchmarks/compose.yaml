@@ -1,0 +1,60 @@
+name: plotter-mppt-memory
+
+x-plotter: &plotter
+  image: plotter-mppt-memory:debian13
+  pull_policy: never
+  platform: linux/amd64
+  depends_on:
+    broker:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8053/"]
+    interval: 2s
+    timeout: 2s
+    retries: 30
+  restart: "no"
+
+services:
+  broker:
+    image: eclipse-mosquitto:2.0.22
+    platform: linux/amd64
+    command: ["mosquitto", "-c", "/mosquitto-no-auth.conf"]
+    volumes:
+      - ./mosquitto.conf:/mosquitto-no-auth.conf:ro
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-t", "$$SYS/#", "-C", "1", "-W", "1"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    restart: "no"
+
+  mppt-web:
+    <<: *plotter
+    build:
+      context: ..
+      dockerfile: benchmarks/Dockerfile
+    command: ["mppt-plotter", "--mqtthost", "broker", "--dashhost", "0.0.0.0", "--update-interval-ms", "25"]
+    environment:
+      MPPT_ROLE: webkit-backed
+
+  mppt-control:
+    <<: *plotter
+    command: ["mppt-plotter", "--mqtthost", "broker", "--dashhost", "0.0.0.0", "--dashport", "8053", "--update-interval-ms", "25"]
+    environment:
+      MPPT_ROLE: server-only
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; socket.create_connection(('localhost', 8053), 2).close()"]
+
+  controller:
+    image: plotter-mppt-memory:debian13
+    pull_policy: never
+    platform: linux/amd64
+    init: true
+    pid: host
+    depends_on:
+      mppt-web:
+        condition: service_healthy
+      mppt-control:
+        condition: service_healthy
+    command: ["python3", "benchmarks/run_mppt_memory.py"]
+    restart: "no"
