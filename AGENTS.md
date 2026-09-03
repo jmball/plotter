@@ -26,7 +26,7 @@ The package uses a `src/` layout and is configured through `pyproject.toml`.
 
 ## Setup and common commands
 
-Use Python 3.9-compatible syntax unless the supported versions in `pyproject.toml`
+Use Python 3.11-compatible syntax unless the supported versions in `pyproject.toml`
 are deliberately changed.
 
 ```bash

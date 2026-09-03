@@ -10,7 +10,7 @@ name = "plotter"
 version = "0.0.1"
 description = "Plot live data"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = "GPL-3.0-only"
 license-files = ["LICENSE"]
 authors = [
@@ -19,7 +19,7 @@ authors = [
 classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.11",
 ]
 dependencies = [
   "dash>=3",
