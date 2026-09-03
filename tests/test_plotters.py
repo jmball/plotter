@@ -10,6 +10,7 @@ from plotter import __main__
 from plotter import it_plotter
 from plotter import iv_plotter
 from plotter import mppt_plotter
+from plotter import vt_plotter
 
 
 def test_process_iv_calculates_light_current_density():
@@ -160,3 +161,26 @@ def test_mppt_callback_skips_idle_intervals(monkeypatch):
     monkeypatch.setattr(mppt_plotter, "_browser_revision", mppt_plotter.graph_revision[0])
 
     assert mppt_plotter.update_graph_live(1) == [mppt_plotter.dash.no_update]
+
+
+@pytest.mark.parametrize(
+    "module, graph_id, port",
+    [(it_plotter, "g4", 8054), (vt_plotter, "g1", 8051)],
+)
+def test_it_vt_bounded_plotter_defaults_and_incremental_callbacks(module, graph_id, port):
+    args = module.parse_args([])
+    callback = module.app.callback_map["..{}.figure..".format(graph_id)]
+
+    assert args.update_interval_ms == 500
+    assert args.dashport == port
+    assert args.max_points == 5000
+    assert args.point_limit_strategy == "downsample"
+    assert callback["state"] == []
+
+
+@pytest.mark.parametrize("module", [it_plotter, vt_plotter])
+def test_it_vt_bounded_plotter_rejects_invalid_controls(module):
+    with pytest.raises(SystemExit):
+        module.parse_args(["--max-points", "0"])
+    with pytest.raises(SystemExit):
+        module.parse_args(["--dashport", "0"])

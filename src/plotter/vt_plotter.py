@@ -18,6 +18,13 @@ import plotly.subplots
 import plotly.graph_objs as go
 import argparse
 from flask import Flask
+from plotter.core.cli import positive_integer, valid_port
+from plotter.core.live_plot import time_series_patch
+from plotter.core.retention import BoundedTimeSeriesRetention
+from plotter.core.processing import process_ivt
+
+DEFAULT_MAX_POINTS = 5000
+DEFAULT_POINT_LIMIT_STRATEGY = "downsample"
 
 
 def format_figure_1(data, fig, title="-"):
@@ -59,6 +66,14 @@ def format_figure_1(data, fig, title="-"):
 
 # create thread-safe containers for storing latest data and plot info
 graph1_latest = collections.deque(maxlen=1)
+graph_epoch = collections.deque([0], maxlen=1)
+graph_revision = collections.deque([0], maxlen=1)
+retention = BoundedTimeSeriesRetention(
+    DEFAULT_MAX_POINTS, DEFAULT_POINT_LIMIT_STRATEGY, 3, (1,), "VT"
+)
+_browser_epoch = -1
+_browser_length = 0
+_browser_revision = -1
 paused = collections.deque(maxlen=1)
 invert_voltage = collections.deque(maxlen=1)
 invert_voltage.append(False)
@@ -101,54 +116,52 @@ app = dash.Dash(__name__, server=server)
 log = logging.getLogger("werkzeug")
 log.disabled = True
 
-app.layout = html.Div(
+def create_layout(update_interval_ms=500):
+    """Create the VT layout with the requested browser refresh interval."""
+    return html.Div(
     html.Div(
         [
             dcc.Graph(id="g1", figure=fig1, style={"width": "95vw", "height": "95vh"}),
-            dcc.Interval(id="interval-component", interval=500, n_intervals=0,),
+            dcc.Interval(id="interval-component", interval=update_interval_ms, n_intervals=0),
         ],
     ),
-)
+    )
+
+
+app.layout = create_layout()
 
 
 @app.callback(
     [dash.dependencies.Output("g1", "figure")],
     [dash.dependencies.Input("interval-component", "n_intervals")],
-    [dash.dependencies.State("g1", "figure")],
 )
-def update_graph_live(n, g1):
+def update_graph_live(n):
     """Update graph."""
+    global _browser_epoch, _browser_length, _browser_revision
     if paused[0] is False:
         g1_latest = graph1_latest[0]
-
-        # update figures
-        g1 = format_figure_1(g1_latest["data"], g1, g1_latest["msg"]["pixel"]["device_label"])
-
-    return [g1]
-
-
-def process_ivt(payload, kind):
-    """Calculate derived I-V-t parameters.
-
-    Parameters
-    ----------
-    payload : dict
-        Payload dictionary.
-    kind : str
-        Kind of measurement data.
-    """
-    data = payload["data"]
-    area = payload["pixel"]["area"]
-
-    new_data = []
-    for element in data:
-        # calculate current density in mA/cm2
-        j = element[1] * 1000 / area
-        p = element[0] * j
-        new_element = element + [j, p]
-        new_data.append(tuple(new_element))
-
-    return new_data
+        epoch = graph_epoch[0]
+        revision = graph_revision[0]
+        if revision == _browser_revision:
+            return [dash.no_update]
+        data = g1_latest["data"]
+        append = (
+            epoch == _browser_epoch
+            and retention.is_raw
+            and len(data) == _browser_length + 1
+            and _browser_length < retention.max_points
+        )
+        patch = time_series_patch(
+            data, g1_latest["msg"]["pixel"].get("device_label", "-"),
+            (1,), append, ("xaxis",), ("yaxis",),
+        )
+        if graph_revision[0] != revision:
+            return [dash.no_update]
+        _browser_epoch = epoch
+        _browser_length = len(data)
+        _browser_revision = revision
+        return [patch]
+    return [dash.no_update]
 
 
 def on_message(mqttc, obj, msg, msg_queue):
@@ -169,31 +182,33 @@ def msg_handler(msg_queue):
 
             if msg.topic == "plotter/vt_measurement/clear":
                 old_msg = graph1_latest[0]["msg"]
-                data = np.empty((0, 3))
-                graph1_latest.append({"msg": old_msg, "data": data})
+                retention.clear()
+                graph_epoch.append(graph_epoch[0] + 1)
+                graph_revision.append(graph_revision[0] + 1)
+                graph1_latest.append({"msg": old_msg, "data": retention.array()})
             elif msg.topic == "plotter/live_device":
                 live_device = payload
                 old_msg = graph1_latest[0]["msg"]
-                data = np.empty((0, 3))
-                graph1_latest.append({"msg": old_msg, "data": data})
+                retention.clear()
+                graph_epoch.append(graph_epoch[0] + 1)
+                graph_revision.append(graph_revision[0] + 1)
+                graph1_latest.append({"msg": old_msg, "data": retention.array()})
             elif msg.topic == "data/raw/vt_measurement":
                 pdata = process_ivt(payload, "vt_measurement")
                 if (live_device is None) or (payload["pixel"]["device_label"] == live_device):
-                    old_data = graph1_latest[0]["data"]
-                    
                     t = pdata[0][2]
                     v = pdata[0][0]
 
                     if invert_voltage[0] is True:
                         v = -1 * v
 
-                    data = np.append(old_data, np.array([[0, v, t]]), axis=0)
-
-                    # time returned by smu is time in s since instrument turned on so
-                    # measurement start offset needs to be substracted.
-                    t_scaled = data[:, -1] - data[0, -1]
-                    data[:, 0] = t_scaled
+                    if len(retention) == 0:
+                        t_offset = t
+                    else:
+                        t_offset = graph1_latest[0]["data"][0, -1]
+                    data = retention.append([t - t_offset, v, t])
                     graph1_latest.append({"msg": payload, "data": data})
+                    graph_revision.append(graph_revision[0] + 1)
             elif msg.topic == "plotter/pause":
                 paused.append(payload)
             elif msg.topic == "plotter/invert_voltage":
@@ -204,9 +219,8 @@ def msg_handler(msg_queue):
         msg_queue.task_done()
 
 
-def main():
-    import argparse
-
+def parse_args(argv=None):
+    """Parse VT plotter command-line arguments."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--mqtthost",
@@ -223,7 +237,34 @@ def main():
         help="Where dash server should listen.",
     )
 
-    args = parser.parse_args()
+    parser.add_argument("--update-interval-ms", type=positive_integer, default=500)
+    parser.add_argument("--dashport", type=valid_port, default=8051)
+    parser.add_argument("--max-points", type=positive_integer, default=DEFAULT_MAX_POINTS)
+    parser.add_argument(
+        "--point-limit-strategy", choices=("sliding", "downsample"),
+        default=DEFAULT_POINT_LIMIT_STRATEGY,
+    )
+    return parser.parse_args(argv)
+
+
+def configure_runtime(args):
+    """Install bounded VT retention before MQTT processing begins."""
+    global retention
+    retention = BoundedTimeSeriesRetention(
+        args.max_points, args.point_limit_strategy, 3, (1,), "VT"
+    )
+
+
+def run_dash(args):
+    """Configure and start Dash using parsed VT settings."""
+    configure_runtime(args)
+    app.layout = create_layout(args.update_interval_ms)
+    app.run(host=args.dashhost, port=args.dashport, debug=False)
+
+
+def main():
+    args = parse_args()
+    configure_runtime(args)
 
     # create mqtt client id
     client_id = f"plotter-{uuid.uuid4().hex}"
@@ -251,7 +292,7 @@ def main():
     threading.Thread(target=mqtt_analyser.loop_forever, daemon=True).start()
 
     # start dash server
-    app.run(host=args.dashhost, port=8051, debug=False)
+    run_dash(args)
 
 if __name__ == "__main__":
     main()

@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from plotter import mppt_plotter
-from plotter.mppt_retention import BoundedMPPTRetention
+from plotter.core.retention import BoundedMPPTRetention
 
 
 @pytest.fixture

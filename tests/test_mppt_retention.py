@@ -3,7 +3,11 @@
 import numpy as np
 import pytest
 
-from plotter.mppt_retention import BoundedMPPTRetention, select_downsampled_rows
+from plotter.core.retention import (
+    BoundedMPPTRetention,
+    BoundedTimeSeriesRetention,
+    select_downsampled_rows,
+)
 
 
 def rows(count):
@@ -101,3 +105,14 @@ def test_invalid_retention_configuration_is_rejected():
         BoundedMPPTRetention(0)
     with pytest.raises(ValueError):
         BoundedMPPTRetention(2, "unknown")
+
+
+def test_generic_single_signal_retention_bounds_it_and_vt_row_shape():
+    retention = BoundedTimeSeriesRetention(4, "sliding", 3, (1,), "test")
+    for row in [[index, index * 10, 100 + index] for index in range(6)]:
+        retention.append(row)
+
+    np.testing.assert_array_equal(
+        retention.array(),
+        [[2, 20, 102], [3, 30, 103], [4, 40, 104], [5, 50, 105]],
+    )

@@ -18,7 +18,10 @@ import plotly.subplots
 import plotly.graph_objs as go
 import argparse
 from flask import Flask
-from plotter.mppt_retention import BoundedMPPTRetention
+from plotter.core.cli import positive_integer, valid_port
+from plotter.core.live_plot import time_series_patch
+from plotter.core.retention import BoundedMPPTRetention
+from plotter.core.processing import process_ivt
 
 DEFAULT_MAX_POINTS = 5000
 DEFAULT_POINT_LIMIT_STRATEGY = "downsample"
@@ -222,32 +225,17 @@ def update_graph_live(n):
             return [dash.no_update]
         data = g3_latest["data"]
         title = g3_latest["msg"]["pixel"].get("device_label", "-")
-        patch = dash.Patch()
         full_replace = epoch != _browser_epoch or len(data) == 0
-        if (
+        append = (
             not full_replace
             and retention.is_raw
             and len(data) == _browser_length + 1
             and _browser_length < retention.max_points
-        ):
-            row = data[-1]
-            for trace_index, value in enumerate(row[1:4]):
-                patch["data"][trace_index]["x"].append(row[0])
-                patch["data"][trace_index]["y"].append(value)
-        else:
-            for trace_index, column in enumerate((1, 2, 3)):
-                patch["data"][trace_index]["x"] = data[:, 0].tolist()
-                patch["data"][trace_index]["y"] = data[:, column].tolist()
-        if len(data):
-            xrange = [float(data[:, 0].min()), float(data[:, 0].max())]
-            patch["layout"]["xaxis"]["range"] = xrange
-            patch["layout"]["xaxis2"]["range"] = xrange
-            patch["layout"]["xaxis3"]["range"] = xrange
-            for axis, column in zip(("yaxis", "yaxis2", "yaxis3"), (1, 2, 3)):
-                patch["layout"][axis]["range"] = [
-                    float(data[:, column].min()), float(data[:, column].max())
-                ]
-        patch["layout"]["annotations"][0]["text"] = title
+        )
+        patch = time_series_patch(
+            data, title, (1, 2, 3), append,
+            ("xaxis", "xaxis2", "xaxis3"), ("yaxis", "yaxis2", "yaxis3"),
+        )
         # Data may arrive or clear while this callback formats its snapshot.
         # Do not send stale state; the next interval renders the new revision.
         if graph_revision[0] != revision:
@@ -257,30 +245,6 @@ def update_graph_live(n):
         _browser_revision = revision
         return [patch]
     return [dash.no_update]
-
-
-def process_ivt(payload, kind):
-    """Calculate derived I-V-t parameters.
-
-    Parameters
-    ----------
-    payload : dict
-        Payload dictionary.
-    kind : str
-        Kind of measurement data.
-    """
-    data = payload["data"]
-    area = payload["pixel"]["area"]
-
-    new_data = []
-    for element in data:
-        # calculate current density in mA/cm2
-        j = element[1] * 1000 / area
-        p = element[0] * j
-        new_element = element + [j, p]
-        new_data.append(tuple(new_element))
-
-    return new_data
 
 
 def on_message(mqttc, obj, msg, msg_queue):
@@ -341,22 +305,6 @@ def msg_handler(msg_queue):
             pass
 
         msg_queue.task_done()
-
-
-def positive_integer(value):
-    """Parse a strictly positive integer for an argparse option."""
-    integer = int(value)
-    if integer <= 0:
-        raise argparse.ArgumentTypeError("must be a positive integer")
-    return integer
-
-
-def valid_port(value):
-    """Parse a valid TCP port for an argparse option."""
-    port = int(value)
-    if not 1 <= port <= 65535:
-        raise argparse.ArgumentTypeError("must be between 1 and 65535")
-    return port
 
 
 def parse_args(argv=None):
