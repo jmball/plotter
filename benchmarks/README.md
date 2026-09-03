@@ -77,3 +77,17 @@ Each cycle boundary verifies exactly 7,200 points in all three aligned traces,
 then zero points after clear. Harness or WebKit termination, render timeout,
 request overlap, stalled calibration progress, or excessive catch-up makes the
 run `INCONCLUSIVE`.
+
+## Visualization bounds (fixed implementation)
+
+The fixed MPPT server accepts `--max-points` (strictly positive, default
+`5000`) and `--point-limit-strategy` (`downsample`, or `sliding`). Sliding
+retains the newest aligned rows. Downsampling retains a bounded chronological
+min/max envelope, including the first and latest rows and extrema for all three
+signals. Once the cap is exceeded, intermediate samples may be discarded; the
+current project has no processed-data publication path, so this loss applies
+only to visualization state.
+
+Normal Dash refreshes use partial `Patch` operations without sending the current
+browser figure back as callback state. Single-point appends update only the new
+values; compaction and clear use bounded trace replacements.

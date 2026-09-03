@@ -24,7 +24,7 @@ def main():
         data = [(np.random.rand(), 10 * np.random.rand(), time.time(), 0)]
         payload = {
             "idn": "test",
-            "pixel": {"area": 1},
+            "pixel": {"area": 1, "device_label": "test-device"},
             "data": data,
             "clear": False,
         }

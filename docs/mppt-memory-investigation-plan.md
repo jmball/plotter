@@ -237,6 +237,13 @@ RSS or PSS to return to its startup value after clear.
 Preserve the unfixed results before changing the data or rendering design.
 Proceed with Stage 5 even if the result is `NOT_DETECTED` or `INCONCLUSIVE`.
 
+**Status (2026-09-03): complete.** The preserved unfixed baseline is at
+`benchmark-results/20260903T121441Z/`. It ran at 10x acceleration after the
+20x calibration was unsustainable, rendered 7,200 points in every trace and
+cleared all traces for each measured cycle, and was classified `NOT_DETECTED`.
+Post-clear WebKit PSS had a slope of 857.6 KiB/cycle with R² 0.00729. This
+does not reproduce or disprove the production failure on its deployed stack.
+
 ## Stage 5: implement the combined bounded-memory fix
 
 Implement the following changes as one coherent change set. Do not split them
@@ -249,7 +256,7 @@ single mechanism.
 Add:
 
 ```text
---max-points 10000
+--max-points 5000
 --point-limit-strategy downsample
 ```
 
@@ -344,6 +351,13 @@ Keep the ordinary pytest suite fast. Add coverage for:
 The long Docker benchmark must remain an explicit command and must not run as
 part of ordinary `uv run pytest` or default CI.
 
+**Status (2026-09-03): complete.** The automated suite covers CLI validation,
+bounded retention for both strategies, downsampling extrema and alignment,
+repeated compaction and clear, MQTT decoding and MPPT state updates, bounded
+Dash `Patch` payloads, idle suppression, browser-trace clearing, callback
+revision races, `/proc` parsing, classification, and early-stop rules. The
+long fixed Docker benchmark is separately skipped as recorded in Stage 7.
+
 ## Stage 7: run the fixed benchmark
 
 Run the identical calibrated workload using:
@@ -356,9 +370,9 @@ Run the identical calibrated workload using:
 - one warm-up plus five measured cycles; and
 - the same telemetry and analysis code.
 
-For the fixed run, rendered traces should reach 7,200 points because the
-default cap is 10,000, then clear to zero. Add separate shorter functional
-checks that exceed 10,000 points and verify both sliding and downsampling caps.
+For the fixed run, rendered traces should remain at or below the default cap of
+5,000 points, then clear to zero. Add separate shorter functional checks that
+exceed 5,000 points and verify both sliding and downsampling caps.
 
 The fixed benchmark passes when:
 
@@ -375,6 +389,12 @@ The fixed benchmark passes when:
 If the unfixed baseline was not `REPRODUCED`, requirements 3 and any claim of a
 demonstrated leak fix do not apply. The fixed run must still establish bounded
 storage, correct rendering, and `NOT_DETECTED` under the benchmark.
+
+**Status (2026-09-03): skipped by project decision.** The unfixed benchmark
+was classified `NOT_DETECTED`, so no comparative fixed benchmark will be run.
+The bounded-storage implementation remains covered by unit and manual host
+tests, but this decision does not establish behavior on the production
+Raspberry Pi/Arch/WebKit stack or multi-week workloads.
 
 ## Stage 8: final validation and handoff
 
@@ -396,3 +416,23 @@ Before completion:
 
 Do not describe a short amd64/WebKitGTK 4.1 result as proof for all platforms or
 multi-week workloads.
+
+**Status (2026-09-03): complete, except for the deliberately skipped Stage 7
+comparison.** Final checks used `uv sync --group test --locked`, `uv run
+pytest` (39 passed), `python -m compileall -q src tests tools benchmarks`, and
+`git diff --check`. A broker-backed host check used the existing local
+Mosquitto service on port 1883: 15 MPPT messages reached a temporary Dash
+server with `--max-points 10`, its returned trace coordinate arrays were each
+bounded at six points, and an MQTT clear explicitly returned six empty trace
+arrays. `uv build` produced the source distribution and wheel; inspection
+confirmed the five console scripts, five systemd units, CSS asset, license,
+and `mppt_retention.py`, with no benchmark results in the wheel.
+
+The baseline command was `docker compose -f benchmarks/compose.yaml up
+--abort-on-container-exit --exit-code-from controller`; its runtime image was
+`plotter-mppt-memory@sha256:f606134b7671efcbb7469edaa87e911a76d51548ea7d40b061e8cf2ea801c408`.
+The preserved run at `benchmark-results/20260903T121441Z/` lasted 4507.47
+seconds according to telemetry, used 10x acceleration, and was classified
+`NOT_DETECTED`. The original production failure was not reproduced. Deferred
+validation remains native ARM64/Raspberry Pi 5, the deployed Arch/WebKit2 4.0
+stack, and multi-week runtime behavior.

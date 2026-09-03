@@ -74,15 +74,22 @@ def test_mppt_cli_benchmark_control_defaults():
 
     assert args.update_interval_ms == 500
     assert args.dashport == 8053
+    assert args.max_points == 5000
+    assert args.point_limit_strategy == "downsample"
 
 
 def test_mppt_cli_benchmark_control_overrides():
     args = mppt_plotter.parse_args(
-        ["--update-interval-ms", "25", "--dashport", "18053"]
+        [
+            "--update-interval-ms", "25", "--dashport", "18053",
+            "--max-points", "250", "--point-limit-strategy", "sliding",
+        ]
     )
 
     assert args.update_interval_ms == 25
     assert args.dashport == 18053
+    assert args.max_points == 250
+    assert args.point_limit_strategy == "sliding"
 
 
 @pytest.mark.parametrize(
@@ -92,6 +99,8 @@ def test_mppt_cli_benchmark_control_overrides():
         ["--update-interval-ms", "-1"],
         ["--dashport", "0"],
         ["--dashport", "65536"],
+        ["--max-points", "0"],
+        ["--point-limit-strategy", "invalid"],
     ],
 )
 def test_mppt_cli_rejects_invalid_benchmark_controls(arguments):
@@ -122,6 +131,10 @@ def test_mppt_server_applies_interval_and_port(monkeypatch):
             "18053",
             "--update-interval-ms",
             "25",
+            "--max-points",
+            "250",
+            "--point-limit-strategy",
+            "sliding",
         ]
     )
 
@@ -129,4 +142,21 @@ def test_mppt_server_applies_interval_and_port(monkeypatch):
 
     interval = mppt_plotter.app.layout.children.children[1]
     assert interval.interval == 25
+    assert mppt_plotter.retention.max_points == 250
+    assert mppt_plotter.retention.strategy == "sliding"
     assert run_options == {"host": "127.0.0.1", "port": 18053, "debug": False}
+
+
+def test_mppt_callback_does_not_round_trip_browser_figure():
+    callback = mppt_plotter.app.callback_map["..g3.figure.."]
+
+    assert callback["state"] == []
+    assert callback["inputs"] == [
+        {"id": "interval-component", "property": "n_intervals"}
+    ]
+
+
+def test_mppt_callback_skips_idle_intervals(monkeypatch):
+    monkeypatch.setattr(mppt_plotter, "_browser_revision", mppt_plotter.graph_revision[0])
+
+    assert mppt_plotter.update_graph_live(1) == [mppt_plotter.dash.no_update]

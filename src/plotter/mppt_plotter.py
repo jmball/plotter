@@ -18,6 +18,10 @@ import plotly.subplots
 import plotly.graph_objs as go
 import argparse
 from flask import Flask
+from plotter.mppt_retention import BoundedMPPTRetention
+
+DEFAULT_MAX_POINTS = 5000
+DEFAULT_POINT_LIMIT_STRATEGY = "downsample"
 
 def format_figure_3(data, fig, title="-"):
     """Format figure type 3.
@@ -74,6 +78,15 @@ def format_figure_3(data, fig, title="-"):
 
 # create thread-safe containers for storing latest data and plot info
 graph3_latest = collections.deque(maxlen=1)
+graph_epoch = collections.deque(maxlen=1)
+graph_epoch.append(0)
+graph_revision = collections.deque(maxlen=1)
+graph_revision.append(0)
+retention = BoundedMPPTRetention(DEFAULT_MAX_POINTS, DEFAULT_POINT_LIMIT_STRATEGY)
+_browser_epoch = -1
+_browser_length = 0
+_browser_revision = -1
+_browser_strategy = DEFAULT_POINT_LIMIT_STRATEGY
 paused = collections.deque(maxlen=1)
 invert_voltage = collections.deque(maxlen=1)
 invert_voltage.append(False)
@@ -197,17 +210,53 @@ app.layout = create_layout()
 @app.callback(
     [dash.dependencies.Output("g3", "figure")],
     [dash.dependencies.Input("interval-component", "n_intervals")],
-    [dash.dependencies.State("g3", "figure")],
 )
-def update_graph_live(n, g3):
+def update_graph_live(n):
     """Update graph."""
+    global _browser_epoch, _browser_length, _browser_revision
     if paused[0] is False:
         g3_latest = graph3_latest[0]
-
-        # update figures
-        g3 = format_figure_3(g3_latest["data"], g3, g3_latest["msg"]["pixel"]["device_label"])
-
-    return [g3]
+        epoch = graph_epoch[0]
+        revision = graph_revision[0]
+        if revision == _browser_revision:
+            return [dash.no_update]
+        data = g3_latest["data"]
+        title = g3_latest["msg"]["pixel"].get("device_label", "-")
+        patch = dash.Patch()
+        full_replace = epoch != _browser_epoch or len(data) == 0
+        if (
+            not full_replace
+            and retention.is_raw
+            and len(data) == _browser_length + 1
+            and _browser_length < retention.max_points
+        ):
+            row = data[-1]
+            for trace_index, value in enumerate(row[1:4]):
+                patch["data"][trace_index]["x"].append(row[0])
+                patch["data"][trace_index]["y"].append(value)
+        else:
+            for trace_index, column in enumerate((1, 2, 3)):
+                patch["data"][trace_index]["x"] = data[:, 0].tolist()
+                patch["data"][trace_index]["y"] = data[:, column].tolist()
+        if len(data):
+            xrange = [float(data[:, 0].min()), float(data[:, 0].max())]
+            patch["layout"]["xaxis"]["range"] = xrange
+            patch["layout"]["xaxis2"]["range"] = xrange
+            patch["layout"]["xaxis3"]["range"] = xrange
+            for axis, column in zip(("yaxis", "yaxis2", "yaxis3"), (1, 2, 3)):
+                patch["layout"][axis]["range"] = [
+                    float(data[:, column].min()), float(data[:, column].max())
+                ]
+        patch["layout"]["annotations"][0]["text"] = title
+        # Data may arrive or clear while this callback formats its snapshot.
+        # Do not send stale state; the next interval renders the new revision.
+        if graph_revision[0] != revision:
+            return [dash.no_update]
+        _browser_epoch = epoch
+        _browser_length = len(data)
+        _browser_revision = revision
+        return [patch]
+    return [dash.no_update]
 
 
 def process_ivt(payload, kind):
@@ -252,13 +301,17 @@ def msg_handler(msg_queue):
 
             if msg.topic == "plotter/mppt_measurement/clear":
                 old_msg = graph3_latest[0]["msg"]
-                data = np.empty((0, 5))
-                graph3_latest.append({"msg": old_msg, "data": data})
+                retention.clear()
+                graph_epoch.append(graph_epoch[0] + 1)
+                graph3_latest.append({"msg": old_msg, "data": retention.array()})
+                graph_revision.append(graph_revision[0] + 1)
             elif msg.topic == "plotter/live_device":
                 live_device = payload
                 old_msg = graph3_latest[0]["msg"]
-                data = np.empty((0, 5))
-                graph3_latest.append({"msg": old_msg, "data": data})
+                retention.clear()
+                graph_epoch.append(graph_epoch[0] + 1)
+                graph3_latest.append({"msg": old_msg, "data": retention.array()})
+                graph_revision.append(graph_revision[0] + 1)
             elif msg.topic == "data/raw/mppt_measurement":
                 pdata = process_ivt(payload, "mppt_measurement")
                 if (live_device is None) or (payload["pixel"]["device_label"] == live_device):
@@ -271,13 +324,15 @@ def msg_handler(msg_queue):
                     if invert_voltage[0] is True:
                         v = -1 * v
 
-                    data = np.append(old_data, np.array([[0, j, p, v, t]]), axis=0,)
-
                     # time returned by smu is time in s since instrument turned on so
                     # measurement start offset needs to be substracted.
-                    t_scaled = data[:, -1] - data[0, -1]
-                    data[:, 0] = t_scaled
+                    if len(retention) == 0:
+                        t_offset = t
+                    else:
+                        t_offset = graph3_latest[0]["data"][0, -1]
+                    data = retention.append([t - t_offset, j, p, v, t])
                     graph3_latest.append({"msg": payload, "data": data})
+                    graph_revision.append(graph_revision[0] + 1)
             elif msg.topic == "plotter/pause":
                 paused.append(payload)
             elif msg.topic == "plotter/invert_voltage":
@@ -333,18 +388,39 @@ def parse_args(argv=None):
         default=8053,
         help="TCP port for the Dash server.",
     )
+    parser.add_argument(
+        "--max-points",
+        type=positive_integer,
+        default=DEFAULT_MAX_POINTS,
+        help="Maximum number of points retained for visualization.",
+    )
+    parser.add_argument(
+        "--point-limit-strategy",
+        choices=("sliding", "downsample"),
+        default=DEFAULT_POINT_LIMIT_STRATEGY,
+        help="Visualization point limiting strategy.",
+    )
 
     return parser.parse_args(argv)
 
 
 def run_dash(args):
     """Configure and start Dash using parsed command-line settings."""
+    configure_runtime(args)
     app.layout = create_layout(args.update_interval_ms)
     app.run(host=args.dashhost, port=args.dashport, debug=False)
 
 
+def configure_runtime(args):
+    """Install bounded retention settings before MQTT processing begins."""
+    global retention, _browser_strategy
+    retention = BoundedMPPTRetention(args.max_points, args.point_limit_strategy)
+    _browser_strategy = args.point_limit_strategy
+
+
 def main():
     args = parse_args()
+    configure_runtime(args)
 
     # create mqtt client id
     client_id = f"plotter-{uuid.uuid4().hex}"

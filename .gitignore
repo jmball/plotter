@@ -51,6 +51,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 benchmark-results/
+tmp/
 
 # Translations
 *.mo
