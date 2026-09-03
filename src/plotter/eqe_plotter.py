@@ -284,7 +284,10 @@ def main():
     # start the msg queue thread
     threading.Thread(target=msg_handler, args=(msg_queue,), daemon=True).start()
 
-    mqtt_analyser = mqtt.Client(client_id)
+    mqtt_analyser = mqtt.Client(
+        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+        client_id=client_id,
+    )
     mqtt_analyser.on_message =  lambda mqttc, obj, msg: on_message(mqttc, obj, msg, msg_queue)
 
     # connect MQTT client to broker
@@ -302,7 +305,7 @@ def main():
     threading.Thread(target=mqtt_analyser.loop_forever, daemon=True).start()
 
     # start dash server
-    app.run_server(host=args.dashhost, port=8055, debug=False)
+    app.run(host=args.dashhost, port=8055, debug=False)
 
 if __name__ == "__main__":
     main()
