@@ -21,8 +21,8 @@ The package uses a `src/` layout and is configured through `pyproject.toml`.
 - `data/systemd/*.service`: user-service templates installed by the package.
 - `pyproject.toml`: dependencies, package data, console scripts, and systemd data
   files.
-- `src/plotter/test_ivt_data.py`: a manual MQTT data generator, not an
-  automated test.
+- `tests/`: automated pytest tests.
+- `tools/publish_test_data.py`: a configurable manual MQTT data generator.
 
 ## Setup and common commands
 
@@ -30,9 +30,7 @@ Use Python 3.9-compatible syntax unless the supported versions in `pyproject.tom
 are deliberately changed.
 
 ```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python3 -m pip install -e .
+uv sync --group test
 ```
 
 Run an installed dashboard with an MQTT broker hostname or IP:
@@ -45,18 +43,19 @@ vt-plotter --mqtthost 127.0.0.1 --dashhost 0.0.0.0
 eqe-plotter --mqtthost 127.0.0.1 --dashhost 0.0.0.0
 ```
 
-There is currently no configured formatter, linter, or automated test suite.
-At minimum, validate Python changes with:
+There is currently no configured formatter or linter. Run the automated tests
+and validate Python syntax with:
 
 ```bash
-python3 -m compileall -q src
+uv run pytest
+uv run python -m compileall -q src tests tools
 ```
 
 For behavior changes, add focused tests for pure processing or figure-formatting
 functions where practical. Broker integration checks require a reachable MQTT
-broker and should be described in the handoff. Do not run
-`src/plotter/test_ivt_data.py` as a test: it publishes 100 messages to the
-configured/default broker and takes several minutes.
+broker and should be described in the handoff. `tools/publish_test_data.py`
+publishes messages to the configured/default broker and is never run as part of
+the automated test suite.
 
 ## Architecture and data flow
 
@@ -97,8 +96,8 @@ plotter and producer.
   log enough context to diagnose malformed messages without killing the worker.
 - Keep network connections and server startup inside `main()` so modules remain
   importable for tests.
-- `python3 -m plotter` is not a supported launch path in the current tree; use
-  the console scripts declared in `pyproject.toml`.
+- Launch through `python3 -m plotter <eqe|it|iv|mppt|vt>` or the console scripts
+  declared in `pyproject.toml`.
 
 ## Packaging and service checks
 
@@ -106,11 +105,9 @@ If dependencies, entry points, assets, or services change, verify both the
 source checkout and a built package:
 
 ```bash
-python3 -m pip install -e .
-python3 -m build
+uv build
 ```
 
-`python3 -m build` requires the separately installed `build` package. Inspect
-the wheel contents when changing `src/plotter/assets` or `data/systemd`.
+Inspect the wheel contents when changing `src/plotter/assets` or `data/systemd`.
 Systemd templates use the instance value (`%i`) as the MQTT host and expect the
 console scripts under `/usr/bin`; keep service and CLI changes synchronized.

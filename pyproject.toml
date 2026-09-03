@@ -52,3 +52,11 @@ plotter = ["assets/stylesheet.css"]
   "data/systemd/iv-plotter@.service",
   "data/systemd/vt-plotter@.service",
 ]
+
+[dependency-groups]
+test = [
+  "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
