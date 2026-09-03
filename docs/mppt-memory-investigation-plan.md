@@ -426,7 +426,7 @@ server with `--max-points 10`, its returned trace coordinate arrays were each
 bounded at six points, and an MQTT clear explicitly returned six empty trace
 arrays. `uv build` produced the source distribution and wheel; inspection
 confirmed the five console scripts, five systemd units, CSS asset, license,
-and `mppt_retention.py`, with no benchmark results in the wheel.
+and `core/retention.py`, with no benchmark results in the wheel.
 
 The baseline command was `docker compose -f benchmarks/compose.yaml up
 --abort-on-container-exit --exit-code-from controller`; its runtime image was
